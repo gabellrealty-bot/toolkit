@@ -1,0 +1,179 @@
+// A Deck Rooms
+
+Sieta arrived at Row 21, Column 22 (Stairwell - Upper/Lower Decks)
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 40% | Morale: 100%
+
+Sieta arrived at Row 21, Column 27 (Junction B-1) // Wrong this "Junnction A-1"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 45% | Morale: 100%
+
+Sieta arrived at Row 21, Column 31 (Sensor Station) // Wrong this "MU/TH/UR 2000"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 60% | Morale: 94%
+
+Sieta arrived at Row 21, Column 20 (Air Scrubbers Shaft)
+Crew Stats
+Sieta (Role: captain)
+Health: 95% | Fatigue: 85% | Morale: 94%
+
+Sieta arrived at Row 16, Column 18 (Living Area 3) — Rest and comfort. // Wrong this "Main MRL Interface"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 30% | Morale: 100%
+
+Sieta arrived at Row 19, Column 17 (Med Lab) // Wrong this "Cryo 1"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 100%
+
+Sieta arrived at Row 21, Column 15 (Junction B2) // Wrong this "Cryo 3"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 5% | Morale: 100%
+
+Sieta arrived at Row 23, Column 17 (Living Area 2) — Rest and comfort. // Wrong this "Cryo 2"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 100%
+
+Sieta arrived at Row 21, Column 13 (Junction B2) // Wrong this "Examinination Room"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 5% | Morale: 80%
+
+Sieta arrived at Row 24, Column 13 (Sci Lab 2) // Wrong this "Showers & Waredrobe 1"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 10% | Morale: 82%
+
+Sieta arrived at Row 18, Column 13 (Med Lab) // Wrong this "Showers & Waredrobe 2"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 82%
+
+⚠️ Reactor failure! Power drained by 20%. // Wrong this level the reactor core is "Junction A-2"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 0%
+
+Sieta arrived at Row 27, Column 18 (Mech A) // Wrong this level the reactor core is "Quantum Log"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 20% | Morale: 12%
+
+
+// === Rooms object (Deck D, restorative edits) ===
+
+Sieta arrived at Row 21, Column 18 (Living Area 2) — Rest and comfort. // Wrong this is the "Vehical Bay"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 52%
+
+Sieta arrived at Row 17, Column 9 (Equ Shed)
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 19% | Morale: 44%
+
+⚠️ Reactor failure! Power drained by 20%. // Wrong this level the reactor core is "Vehical Parts & Storage"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 34%
+
+Sieta arrived at Row 26, Column 9 (Dispatch Office)
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 7% | Morale: 5%
+
+
+
+
+// === Rooms object (Deck C, restorative edits) ===
+
+Sieta arrived at Row 21, Column 27 (Junction B-1) // Wrong this level this is "Junction C-1"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 10% | Morale: 27%
+
+Sieta arrived at Row 21, Column 22 (Stairwell - Upper/Lower Decks)
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 26% | Morale: 27%
+
+Sieta arrived at Row 16, Column 21 (Corporate Suite w/EEV) // Wrong this level this is "Cargo Bay 1"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 6% | Morale: 47%
+
+Sieta arrived at Row 25, Column 21 (Mess Hall) // Wrong this level this is "Cargo Bay 2"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 62%
+
+Sieta arrived at Row 23, Column 18 (Living Area 2) — Rest and comfort. // Wrong this level this is "Catwalk 1 - Open to Deck D"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 82%
+
+Sieta arrived at Row 18, Column 18 (Living Area 3) — Rest and comfort. // Wrong this level this is "Catwalk 2 - Open to Deck D"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 100%
+
+Sieta arrived at Row 15, Column 16 (Cargo Office)
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 4% | Morale: 94%
+
+Sieta arrived at Row 21, Column 15 (Junction B2) // Wrong this level this is "Catwalk 3 - Open Center to Deck D"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 5% | Morale: 100%
+
+Sieta arrived at Row 20, Column 13 (Med Lab) // Wrong this level this is "Balcony & Asset Log"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 100%
+
+⚠️ Reactor failure! Power drained by 20%. // Wrong this level the reactor core is "Junction C-2"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 90%
+
+Sieta arrived at Row 25, Column 11 (Sci Lab 1 w/storage) // Wrong this level this is "Coolant Tank 2"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 5% | Morale: 82%
+
+Sieta arrived at Row 24, Column 13 (Sci Lab 2) // Wrong this level this is "Manintanace 2"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 10% | Morale: 84%
+
+Sieta arrived at Row 17, Column 13 (Med Lab) // Wrong this level this is "Manintanace 1"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 84%
+
+Sieta arrived at Row 16, Column 11 (Medpods) — Intensive healing. // Wrong this level this is "Coolant Tank 1"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 94%
+
+Sieta arrived at Row 25, Column 9 (Reactor Relay Control)
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 8% | Morale: 56%
+
+Sieta arrived at Row 16, Column 24 (Storage Closet 1)
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 6% | Morale: 86%
+
+Sieta arrived at Row 25, Column 24 (Mess Hall) // Wrong this level this is "Storage Closet 2"
+Crew Stats
+Sieta (Role: captain)
+Health: 100% | Fatigue: 0% | Morale: 100%

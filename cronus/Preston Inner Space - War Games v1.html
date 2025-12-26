@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Starship Systems Sim – Grid Map</title>
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    font-family: Arial, sans-serif;
+    color: #fff;
+  }
+
+  .container {
+    display: grid;
+    grid-template-columns: 250px 1fr 300px;
+    height: 100vh;
+  }
+
+  .left-panel, .right-panel {
+    background: #111;
+    padding: 10px;
+    overflow-y: auto;
+  }
+  .left-panel { border-right: 2px solid #333; }
+  .right-panel { border-left: 2px solid #333; }
+
+  .map-area {
+    position: relative;
+    background: #000;
+  }
+
+  .map-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Smaller transparent grid overlay */
+  .grid-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-columns: repeat(40, 1fr); /* more columns = smaller squares */
+    grid-template-rows: repeat(40, 1fr);    /* more rows = smaller squares */
+    pointer-events: none;
+  }
+  .grid-overlay div {
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Left Panel -->
+  <div class="left-panel">
+    <h2>Crew</h2>
+    <p>• Crew Member 1</p>
+    <p>• Crew Member 2</p>
+    <p>• Crew Member 3</p>
+
+    <h2>Resources</h2>
+    <p>Power: 0%</p>
+    <p>Oxygen: 0%</p>
+    <p>Fuel: 0%</p>
+    <p>Coolant: 0%</p>
+  </div>
+
+  <!-- Map Area -->
+  <div class="map-area">
+    <img class="map-image" src="cronus-map.jpeg" alt="Ship Map">
+    <div class="grid-overlay" id="grid"></div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+    <h2>Ship Systems</h2>
+    <p>Reactor: Offline</p>
+    <p>Life Support: Offline</p>
+    <p>Engines: Offline</p>
+    <p>Comms: Offline</p>
+
+    <h2>Events</h2>
+    <p>No events yet.</p>
+  </div>
+
+</div>
+
+<script>
+  // Generate 1600 cells (40x40) for smaller squares
+  const grid = document.getElementById("grid");
+  for (let i = 0; i < 1600; i++) {
+    const cell = document.createElement("div");
+    grid.appendChild(cell);
+  }
+</script>
+</body>
+</html>

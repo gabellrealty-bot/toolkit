@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Starship Zone Simulation</title>
+<style>
+  body { margin:0; background:#000; font-family:Arial; color:#fff; }
+  .container { display:grid; grid-template-columns:250px 1fr 300px; height:100vh; }
+  .left-panel,.right-panel { background:#111; padding:10px; overflow-y:auto; }
+  .left-panel { border-right:2px solid #333; }
+  .right-panel { border-left:2px solid #333; }
+  .map-area { position:relative; background:#000; }
+  .map-image { width:100%; height:100%; object-fit:contain; display:block; }
+
+  /* Grid overlay */
+  .grid-overlay {
+    position:absolute; top:0; left:0;
+    width:100%; height:100%;
+    display:grid;
+    grid-template-columns:repeat(40,1fr);
+    grid-template-rows:repeat(40,1fr);
+  }
+  .grid-overlay div {
+    border:1px solid rgba(255,255,255,0.08);
+    cursor:pointer;
+    position:relative;
+  }
+
+  /* Debug: show coordinates */
+  .grid-overlay div::after {
+    content: attr(data-row) "," attr(data-col);
+    font-size:7px; color:rgba(255,255,255,0.4);
+    position:absolute; top:0; left:0;
+  }
+
+  /* Crew token */
+  .crew-token { width:80%; height:80%; border-radius:50%; margin:auto; }
+
+  h2 { margin-top:0; border-bottom:1px solid #444; padding-bottom:5px; }
+
+  /* Zone tints */
+  .zone-bridge { background-color: rgba(0,0,255,0.1); }
+  .zone-reactor { background-color: rgba(255,0,0,0.1); }
+  .zone-medlab { background-color: rgba(0,255,0,0.1); }
+  .zone-engine { background-color: rgba(255,165,0,0.1); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Left Panel -->
+  <div class="left-panel">
+    <h2>Crew</h2>
+    <button onclick="setActiveCrew('Rosa')">👧 Rosa</button>
+    <button onclick="setActiveCrew('Sieta')">🧑‍🚀 Sieta</button>
+    <button onclick="setActiveCrew('Lucina')">👧 Lucina</button>
+    <button onclick="setActiveCrew('Helena')">👧 Helena</button>
+    <h2>Resources</h2>
+    <p id="power">Power: 100%</p>
+    <p id="oxygen">Oxygen: 100%</p>
+    <p id="fuel">Fuel: 100%</p>
+    <p id="coolant">Coolant: 100%</p>
+  </div>
+
+  <!-- Map Area -->
+  <div class="map-area">
+    <img id="mapImage" class="map-image" src="cronus-map.jpeg" alt="Ship Map">
+    <div class="grid-overlay" id="grid"></div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+    <h2>Events</h2><div id="eventLog">No events yet.</div>
+    <h2>Crew Stats</h2><div id="crewStats"></div>
+  </div>
+
+</div>
+
+<script>
+  /* Crew stats and colors */
+  const crewStats = { "Rosa":{health:100,fatigue:0,morale:100}, "Sieta":{health:100,fatigue:0,morale:100}, "Lucina":{health:100,fatigue:0,morale:100}, "Helena":{health:100,fatigue:0,morale:100} };
+  const crewColors = { "Rosa":"pink","Sieta":"cyan","Lucina":"teal","Helena":"white" };
+  const crewTokens = {}; const crewPositions = {}; let activeCrew = null;
+
+  /* Resources */
+  let resources = { power:100, oxygen:100, fuel:100, coolant:100 };
+  function updateResources(){ document.getElementById("power").innerText=`Power: ${resources.power}%`; document.getElementById("oxygen").innerText=`Oxygen: ${resources.oxygen}%`; document.getElementById("fuel").innerText=`Fuel: ${resources.fuel}%`; document.getElementById("coolant").innerText=`Coolant: ${resources.coolant}%`; }
+  function updateCrewStats(){ const statsDiv=document.getElementById("crewStats"); statsDiv.innerHTML=""; if(activeCrew){ const s=crewStats[activeCrew]; statsDiv.innerHTML=`<p><strong>${activeCrew}</strong><br>Health: ${s.health}% | Fatigue: ${s.fatigue}% | Morale: ${s.morale}%</p>`; } }
+  function setActiveCrew(name){ activeCrew=name; document.getElementById("eventLog").innerText=`${name} selected`; updateCrewStats(); }
+
+  /* Zones (quadrants) */
+  const zones = {
+    "Bridge":   {rows:[0,19], cols:[0,19], class:"zone-bridge", event:()=>document.getElementById("eventLog").innerText="Bridge entered"},
+    "Reactor":  {rows:[0,19], cols:[20,39], class:"zone-reactor", event:()=>{resources.power=Math.max(0,resources.power-20); updateResources(); document.getElementById("eventLog").innerText="⚠️ Reactor drain";}},
+    "Medlab":   {rows:[20,39], cols:[0,19], class:"zone-medlab", event:()=>document.getElementById("eventLog").innerText="Medlab entered — health restored"},
+    "EngineBay":{rows:[20,39], cols:[20,39], class:"zone-engine", event:()=>{resources.fuel=Math.max(0,resources.fuel-10); updateResources(); document.getElementById("eventLog").innerText="⚠️ Engine stress";}}
+  };
+
+  function highlightZones(){
+    for(const zone in zones){
+      const {rows,cols,class:zoneClass}=zones[zone];
+      [...grid.children].forEach(cell=>{
+        const r=parseInt(cell.dataset.row), c=parseInt(cell.dataset.col);
+        if(r>=rows[0]&&r<=rows[1]&&c>=cols[0]&&c<=cols[1]){
+          cell.classList.add(zoneClass);
+        }
+      });
+    }
+  }
+
+  function checkZone(row,col,crewName){
+    for(const zone in zones){
+      const {rows,cols,event}=zones[zone];
+      if(row>=rows[0]&&row<=rows[1]&&col>=cols[0]&&col<=cols[1]){
+        document.getElementById("eventLog").innerText=`${crewName} entered ${zone}`;
+        event();
+      }
+    }
+  }
+
+  /* Crew movement */
+  function crewMove(row,col,name){
+    resources.oxygen=Math.max(0,resources.oxygen-1);
+    crewStats[name].fatigue=Math.min(100,crewStats[name].fatigue+2);
+    crewStats[name].morale=Math.max(0,crewStats[name].morale-1);
+    updateResources(); updateCrewStats();
+    document.getElementById("eventLog").innerText=`${name} moved to Row ${row}, Col ${col}`;
+    checkZone(row,col,name);
+  }
+
+  /* Build grid */
+  const grid=document.getElementById("grid");
+  for(let row=0;row<40;row++){
+    for(let col=0;col<40;col++){
+      const cell=document.createElement("div");
+      cell.dataset.row=row; cell.dataset.col=col;
+      cell.addEventListener("click",()=>{
+        if(!activeCrew){ document.getElementById("eventLog").innerText="No crew selected!"; return; }
+        if(!crewTokens[activeCrew]){
+          const token=document.createElement("div"); token.classList.add("crew-token"); token.style.backgroundColor=crewColors[activeCrew];
+          cell.appendChild(token); crewTokens[activeCrew]=token; crewPositions[activeCrew]={row,col}; crewMove(row,col,activeCrew);
+        } else {
+          crewTokens[activeCrew].remove();
+          const token=document.createElement("div"); token.classList.add("crew-token"); token.style.backgroundColor=crewColors[activeCrew];
+          cell.appendChild(token); crewTokens[activeCrew]=token; crewPositions[activeCrew]={row,col}; crewMove(row,col,activeCrew);
+        }
+      });
+      grid.appendChild(cell);
+    }
+  }
+
+  /* Initialize */
+  updateResources(); updateCrewStats(); highlightZones();
+</script>
+</body>
+</html>

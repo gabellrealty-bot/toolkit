@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Starship Systems Sim – Crew Tokens</title>
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    font-family: Arial, sans-serif;
+    color: #fff;
+  }
+
+  .container {
+    display: grid;
+    grid-template-columns: 250px 1fr 300px;
+    height: 100vh;
+  }
+
+  .left-panel, .right-panel {
+    background: #111;
+    padding: 10px;
+    overflow-y: auto;
+  }
+  .left-panel { border-right: 2px solid #333; }
+  .right-panel { border-left: 2px solid #333; }
+
+  .map-area {
+    position: relative;
+    background: #000;
+  }
+
+  .map-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .grid-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-columns: repeat(40, 1fr);
+    grid-template-rows: repeat(40, 1fr);
+  }
+  .grid-overlay div {
+    border: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    position: relative;
+  }
+
+  /* Crew token style */
+  .crew-token {
+    width: 80%;
+    height: 80%;
+    border-radius: 50%;
+    margin: auto;
+  }
+
+  h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Left Panel -->
+  <div class="left-panel">
+    <h2>Crew</h2>
+    <!-- Buttons to select active crew -->
+    <button onclick="setActiveCrew('Rosa')">👧 Rosa</button>
+    <button onclick="setActiveCrew('Bessy')">👧 Bessy</button>
+    <button onclick="setActiveCrew('Maria')">👧 Maria</button>
+    <button onclick="setActiveCrew('Neon')">👧 Neon</button>
+    <button onclick="setActiveCrew('Sieta')">🧑‍🚀 Sieta</button>
+    <button onclick="setActiveCrew('Bessy Jr')">👩‍🎭 Bessy Jr</button>
+    <button onclick="setActiveCrew('Joshua')">🧑‍🚀 Joshua</button>
+    <button onclick="setActiveCrew('Isabella')">👩‍🎭 Isabella</button>
+    <button onclick="setActiveCrew('Bei')">👧 Bei</button>
+    <button onclick="setActiveCrew('Lucina')">👧 Lucina</button>
+    <button onclick="setActiveCrew('Helena')">👧 Helena</button>
+
+
+<h2>Resources</h2> <p id="power">Power: 100%</p> <p id="oxygen">Oxygen: 100%</p> <p id="fuel">Fuel: 100%</p> <p id="coolant">Coolant: 100%</p>
+
+    <h2>Maps</h2>
+    <button onclick="setMap('cronus-map.a.jpg')">Deck A</button>
+    <button onclick="setMap('cronus-map.b.jpg')">Deck B</button>
+    <button onclick="setMap('cronus-map.c.jpg')">Deck C</button>
+    <button onclick="setMap('cronus-map.d.jpg')">Deck D</button>
+  </div>
+
+  <!-- Map Area -->
+  <div class="map-area">
+    <img id="mapImage" class="map-image" src="cronus-map.jpeg" alt="Ship Map">
+    <div class="grid-overlay" id="grid"></div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+  <h2>Ship Systems</h2>
+  <p>Reactor: Offline</p>
+  <p>Life Support: Offline</p>
+  <p>Engines: Offline</p>
+  <p>Comms: Offline</p>
+
+  <h2>Events</h2>
+  <div id="eventLog">No events yet.</div>
+
+  <h2>Crew Stats</h2>
+  <div id="crewStats"></div>
+</div>
+
+</div>
+
+<script>
+
+  // Crew stats object
+  const crewStats = {
+    "Rosa":     {health: 100, fatigue: 0, morale: 100, role: "crew"},
+    "Bessy":    {health: 100, fatigue: 0, morale: 100, role: "crew"},
+    "Maria":    {health: 100, fatigue: 0, morale: 100, role: "crew"},
+    "Neon":     {health: 100, fatigue: 0, morale: 100, role: "crew"},
+    "Sieta":    {health: 100, fatigue: 0, morale: 100, role: "captain"},
+    "Bessy Jr": {health: 100, fatigue: 0, morale: 100, role: "npc"},
+    "Joshua":   {health: 100, fatigue: 0, morale: 100, role: "npc"},
+    "Isabella": {health: 100, fatigue: 0, morale: 100, role: "npc"},
+    "Bei":      {health: 100, fatigue: 0, morale: 100, role: "crew"},
+    "Lucina":   {health: 100, fatigue: 0, morale: 100, role: "crew"},
+    "Helena":   {health: 100, fatigue: 0, morale: 100, role: "crew"}
+  };
+
+  // Function to render stats in right panel
+  function updateCrewStats() {
+    const statsDiv = document.getElementById("crewStats");
+    statsDiv.innerHTML = "";
+    for (const name in crewStats) {
+      const stats = crewStats[name];
+      statsDiv.innerHTML += `
+        <p><strong>${name}</strong> 
+        (Role: ${stats.role})<br>
+        Health: ${stats.health}% | Fatigue: ${stats.fatigue}% | Morale: ${stats.morale}%</p>
+      `;
+    }
+  }
+
+  // Example: moving crew increases fatigue, lowers morale slightly
+  function crewMove(row, col, name) {
+    resources.oxygen = Math.max(0, resources.oxygen - 1);
+    resources.power = Math.max(0, resources.power - 1);
+
+    // Adjust crew stats
+    crewStats[name].fatigue = Math.min(100, crewStats[name].fatigue + 2);
+    crewStats[name].morale = Math.max(0, crewStats[name].morale - 1);
+
+    updateResources();
+    updateCrewStats();
+
+    document.getElementById("eventLog").innerText =
+      `${name} moved to Row ${row+1}, Column ${col+1}`;
+  }
+
+  // Initialize stats display
+  updateCrewStats();
+
+
+  const grid = document.getElementById("grid");
+
+  // Crew list with colors
+  const crewColors = {
+    "Rosa": "pink",
+    "Bessy": "orange",
+    "Maria": "purple",
+    "Neon": "lime",
+    "Sieta": "cyan",
+    "Bessy Jr": "yellow",
+    "Joshua": "blue",
+    "Isabella": "red",
+    "Bei": "magenta",
+    "Lucina": "teal",
+    "Helena": "white"
+  };
+
+  // Track tokens
+  const crewTokens = {};
+  let activeCrew = null;
+
+  // Generate grid
+  for (let row = 0; row < 40; row++) {
+    for (let col = 0; col < 40; col++) {
+      const cell = document.createElement("div");
+      cell.dataset.row = row;
+      cell.dataset.col = col;
+
+      cell.addEventListener("click", () => {
+        if (!activeCrew) {
+          document.getElementById("eventLog").innerText = "No crew selected!";
+          return;
+        }
+
+        // Remove old token for this crew
+        if (crewTokens[activeCrew]) {
+          crewTokens[activeCrew].remove();
+        }
+
+        // Create new token
+        const token = document.createElement("div");
+        token.classList.add("crew-token");
+        token.style.backgroundColor = crewColors[activeCrew];
+        cell.appendChild(token);
+
+        // Save reference
+        crewTokens[activeCrew] = token;
+
+        // Log event
+        document.getElementById("eventLog").innerText =
+          `${activeCrew} moved to Row ${row+1}, Column ${col+1}`;
+      });
+
+      grid.appendChild(cell);
+    }
+  }
+
+  // Resource values
+  let resources = {
+    power: 100,
+    oxygen: 100,
+    fuel: 100,
+    coolant: 100
+  };
+
+  // Update resource display
+  function updateResources() {
+    document.getElementById("power").innerText = `Power: ${resources.power}%`;
+    document.getElementById("oxygen").innerText = `Oxygen: ${resources.oxygen}%`;
+    document.getElementById("fuel").innerText = `Fuel: ${resources.fuel}%`;
+    document.getElementById("coolant").innerText = `Coolant: ${resources.coolant}%`;
+  }
+
+  // Crew movement consumes oxygen & power
+  function crewMove(row, col, name) {
+    resources.oxygen = Math.max(0, resources.oxygen - 1);
+    resources.power = Math.max(0, resources.power - 1);
+    updateResources();
+    document.getElementById("eventLog").innerText =
+      `${name} moved to Row ${row+1}, Column ${col+1}`;
+  }
+
+  // Switching maps consumes fuel
+  function setMap(filename) {
+    document.getElementById("mapImage").src = filename;
+    resources.fuel = Math.max(0, resources.fuel - 5);
+    updateResources();
+    document.getElementById("eventLog").innerText = `Switched to ${filename}`;
+
+    // Reset crew tokens
+    for (const crew in crewTokens) {
+      if (crewTokens[crew]) {
+        crewTokens[crew].remove();
+        crewTokens[crew] = null;
+      }
+    }
+  }
+
+  // Example: system event drains coolant
+  function drainCoolant() {
+    resources.coolant = Math.max(0, resources.coolant - 10);
+    updateResources();
+    document.getElementById("eventLog").innerText = "Coolant drained by system event!";
+  }
+
+  // Initialize display
+  updateResources();
+
+
+  // Select active crew
+  function setActiveCrew(name) {
+    activeCrew = name;
+    document.getElementById("eventLog").innerText = `${name} selected`;
+  }
+
+  // Switch maps
+  function setMap(filename) {
+    document.getElementById("mapImage").src = filename;
+    document.getElementById("eventLog").innerText = `Switched to ${filename}`;
+
+    // Reset all tokens
+    for (const crew in crewTokens) {
+      if (crewTokens[crew]) {
+        crewTokens[crew].remove();
+        crewTokens[crew] = null;
+      }
+    }
+  }
+</script>
+</body>
+</html>

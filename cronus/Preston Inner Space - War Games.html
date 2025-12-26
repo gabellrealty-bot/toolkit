@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Starship Systems Sim – Prototype UI</title>
+<style>
+    body {
+        margin: 0;
+        background: #000;
+        font-family: Arial, sans-serif;
+        color: #fff;
+        overflow: hidden;
+    }
+
+    /* --- Main Layout --- */
+    .container {
+        display: grid;
+        grid-template-columns: 250px 1fr 300px;
+        grid-template-rows: 100vh;
+        width: 100vw;
+        height: 100vh;
+    }
+
+    /* --- Left Panel --- */
+    .left-panel {
+        background: #111;
+        border-right: 2px solid #333;
+        padding: 10px;
+        overflow-y: auto;
+    }
+
+    /* --- Center Map Area --- */
+    .map-area {
+        position: relative;
+        background-image: url("cornusxg1.jpg");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: #000;
+    }
+
+    /* --- Grid Overlay --- */
+    .grid-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: grid;
+        grid-template-columns: repeat(20, 1fr);
+        grid-template-rows: repeat(20, 1fr);
+    }
+
+    .grid-overlay div {
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* --- Right Panel --- */
+    .right-panel {
+        background: #111;
+        border-left: 2px solid #333;
+        padding: 10px;
+        overflow-y: auto;
+    }
+
+    h2 {
+        margin-top: 0;
+        font-size: 18px;
+        border-bottom: 1px solid #444;
+        padding-bottom: 5px;
+    }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+        <h2>Crew</h2>
+        <p>• Crew Member 1</p>
+        <p>• Crew Member 2</p>
+        <p>• Crew Member 3</p>
+
+        <h2>Resources</h2>
+        <p>Power: 0%</p>
+        <p>Oxygen: 0%</p>
+        <p>Fuel: 0%</p>
+        <p>Coolant: 0%</p>
+    </div>
+
+    <!-- MAP AREA -->
+    <div class="map-area">
+        <div class="grid-overlay">
+            ${Array.from({length: 400}).map(() => "<div></div>").join("")}
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+        <h2>Ship Systems</h2>
+        <p>Reactor: Offline</p>
+        <p>Life Support: Offline</p>
+        <p>Engines: Offline</p>
+        <p>Comms: Offline</p>
+
+        <h2>Events</h2>
+        <p>No events yet.</p>
+    </div>
+
+</div>
+</body>
+</html>

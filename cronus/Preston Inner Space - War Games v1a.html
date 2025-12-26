@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Starship Systems Sim – Grid Map</title>
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    font-family: Arial, sans-serif;
+    color: #fff;
+  }
+
+  .container {
+    display: grid;
+    grid-template-columns: 250px 1fr 300px;
+    height: 100vh;
+  }
+
+  .left-panel, .right-panel {
+    background: #111;
+    padding: 10px;
+    overflow-y: auto;
+  }
+  .left-panel { border-right: 2px solid #333; }
+  .right-panel { border-left: 2px solid #333; }
+
+  .map-area {
+    position: relative;
+    background: #000;
+  }
+
+  .map-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Smaller transparent grid overlay */
+  .grid-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-columns: repeat(40, 1fr); /* 40x40 = smaller squares */
+    grid-template-rows: repeat(40, 1fr);
+  }
+  .grid-overlay div {
+    border: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer; /* show pointer on hover */
+  }
+
+  h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Left Panel -->
+  <div class="left-panel">
+    <h2>Crew</h2>
+    <p>• Crew Member 1</p>
+    <p>• Crew Member 2</p>
+    <p>• Crew Member 3</p>
+
+    <h2>Resources</h2>
+    <p>Power: 0%</p>
+    <p>Oxygen: 0%</p>
+    <p>Fuel: 0%</p>
+    <p>Coolant: 0%</p>
+
+    <h2>Maps</h2>
+    <button onclick="setMap('cronus-map.a.jpg')">Deck A</button>
+    <button onclick="setMap('cronus-map.b.jpg')">Deck B</button>
+    <button onclick="setMap('cronus-map.c.jpg')">Deck C</button>
+    <button onclick="setMap('cronus-map.d.jpg')">Deck D</button>
+  </div>
+
+  <!-- Map Area -->
+  <div class="map-area">
+    <img id="mapImage" class="map-image" src="cronus-map.jpeg" alt="Ship Map">
+    <div class="grid-overlay" id="grid"></div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+    <h2>Ship Systems</h2>
+    <p>Reactor: Offline</p>
+    <p>Life Support: Offline</p>
+    <p>Engines: Offline</p>
+    <p>Comms: Offline</p>
+
+    <h2>Events</h2>
+    <div id="eventLog">No events yet.</div>
+  </div>
+
+</div>
+
+<script>
+  // Generate 1600 cells (40x40)
+  const grid = document.getElementById("grid");
+  for (let row = 0; row < 40; row++) {
+    for (let col = 0; col < 40; col++) {
+      const cell = document.createElement("div");
+      cell.dataset.row = row;
+      cell.dataset.col = col;
+      cell.addEventListener("click", () => {
+        document.getElementById("eventLog").innerText =
+          `Clicked cell at Row ${row+1}, Column ${col+1}`;
+      });
+      grid.appendChild(cell);
+    }
+  }
+
+  // Switch maps
+  function setMap(filename) {
+    document.getElementById("mapImage").src = filename;
+    document.getElementById("eventLog").innerText = `Switched to ${filename}`;
+  }
+</script>
+</body>
+</html>
