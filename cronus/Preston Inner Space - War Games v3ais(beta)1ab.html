@@ -84,19 +84,11 @@
     <button onclick="setActiveCrew('Lucina')">👧 Lucina</button>
     <button onclick="setActiveCrew('Helena')">👧 Helena</button>
 
-  <div id="leftPanel">
-    <h3>Resources</h3>
-    <div id="resources">
-      <p>Power: <span id="power">99%</span></p>
-      <p>Oxygen: <span id="oxygen">99%</span></p>
-      <p>Fuel: <span id="fuel">65%</span></p>
-      <p>Coolant: <span id="coolant">100%</span></p>
-      <p>Pressure Levels: <span id="pressure">100%</span></p>
-      <p>Quantum Flow: <span id="quantum">Stable</span></p>
-    </div>
-    <h3>Event Log</h3>
-    <div id="eventLog">System initialized.</div>
-  </div>
+    <h2>Resources</h2>
+    <p id="power">Power: 100%</p>
+    <p id="oxygen">Oxygen: 100%</p>
+    <p id="fuel">Fuel: 100%</p>
+    <p id="coolant">Coolant: 100%</p>
 	
 	<h2>Icons: Services</h2>
 <div class="icon-placeholder">
@@ -143,61 +135,33 @@
   <h2>Crew Stats</h2>
   <div id="crewStats"></div>
   
+  
   <h3>Error Codes</h3>
-    <div id="errorCodes">
-      <button onclick="applyFix('E101')">Fix E101: Reactor Overload</button>
-      <button onclick="applyFix('E202')">Fix E202: Oxygen Leak</button>
-      <button onclick="applyFix('E303')">Fix E303: Fuel Contamination</button>
-      <button onclick="applyFix('E404')">Fix E404: Coolant Imbalance</button>
-    </div>
+<div id="errorCodes">
+  <button onclick="applyFix('E101')">Fix E101: Reactor Overload</button>
+  <button onclick="applyFix('E202')">Fix E202: Oxygen Leak</button>
+  <button onclick="applyFix('E303')">Fix E303: Fuel Contamination</button>
+  <button onclick="applyFix('E404')">Fix E404: Coolant Imbalance</button>
+</div>
 
-    <h3>Ship Systems</h3>
-    <div id="shipSystems">Systems nominal.</div>
-  </div>
+  
 </div>
 
 
 <script>
-let resources = { power:99, oxygen:99, fuel:65, coolant:100, pressure:100, quantum:"Stable" };
-let crewStats = { Rosa:{fatigue:0,morale:100}, Neon:{fatigue:0,morale:100} };
-let crewTokens = {}, crewPositions = {}, crewColors = {Rosa:"red", Neon:"blue"};
-let activeCrew = "Rosa";
-let currentDeck = "B";
-
-// ================== Resource Updates ==================
-function updateResources(){
-  document.getElementById("power").innerText = resources.power+"%";
-  document.getElementById("oxygen").innerText = resources.oxygen+"%";
-  document.getElementById("fuel").innerText = resources.fuel+"%";
-  document.getElementById("coolant").innerText = resources.coolant+"%";
-  document.getElementById("pressure").innerText = resources.pressure+"%";
-  document.getElementById("quantum").innerText = resources.quantum;
-}
-
-// ================== Ship Systems ==================
-let shipSystems = { reactor:true, lifeSupport:true, engines:true, comms:true };
-function updateShipSystems(){
-  document.getElementById("shipSystems").innerText =
-    `Reactor: ${shipSystems.reactor?"ON":"OFF"} | Life Support: ${shipSystems.lifeSupport?"ON":"OFF"} | Engines: ${shipSystems.engines?"ON":"OFF"} | Comms: ${shipSystems.comms?"ON":"OFF"} (Deck ${currentDeck})`;
-}
-
-// ================== Events ==================
-function reactorFailure(){ resources.power -= 20; updateResources(); document.getElementById("eventLog").innerText="Reactor failure triggered."; }
-function oxygenLeak(){ resources.oxygen -= 15; updateResources(); document.getElementById("eventLog").innerText="Oxygen leak detected."; }
-function fuelSpike(){ resources.fuel -= 10; updateResources(); document.getElementById("eventLog").innerText="Fuel spike occurred."; }
-function coolantSpike(){ resources.coolant -= 10; updateResources(); document.getElementById("eventLog").innerText="Coolant spike detected."; }
-
-// ================== Error Fixes ==================
-function applyFix(code){
+function applyFix(code) {
   switch(code){
-    case 'E101': resources.power=Math.min(100,resources.power+5); document.getElementById("eventLog").innerText="Fix E101 applied."; break;
-    case 'E202': resources.oxygen=Math.min(100,resources.oxygen+10); document.getElementById("eventLog").innerText="Fix E202 applied."; break;
-    case 'E303': resources.fuel=Math.min(100,resources.fuel+15); document.getElementById("eventLog").innerText="Fix E303 applied."; break;
-    case 'E404': resources.coolant=Math.min(100,resources.coolant+10); resources.pressure=Math.min(100,resources.pressure+5); document.getElementById("eventLog").innerText="Fix E404 applied."; break;
+    case 'E101': resources.power = Math.min(100, resources.power+5); break;
+    case 'E202': resources.oxygen = Math.min(100, resources.oxygen+10); break;
+    case 'E303': resources.fuel = Math.min(100, resources.fuel+15); break;
+    case 'E404': resources.coolant = Math.min(100, resources.coolant+10);
+                 resources.pressure = Math.min(100, resources.pressure+5); break;
   }
-  resources.quantum = resources.power<50 ? "Unstable" : "Stable";
+  resources.quantum = resources.power < 50 ? "Unstable" : "Stable";
   updateResources();
+  document.getElementById("eventLog").innerText = `Applied fix ${code}`;
 }
+
 
 let shipSystems = {
   reactor: false,
