@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Starship Systems Sim – Crew Tokens</title>
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    font-family: Arial, sans-serif;
+    color: #fff;
+  }
+
+  .container {
+    display: grid;
+    grid-template-columns: 250px 1fr 300px;
+    height: 100vh;
+  }
+
+  .left-panel, .right-panel {
+    background: #111;
+    padding: 10px;
+    overflow-y: auto;
+  }
+  .left-panel { border-right: 2px solid #333; }
+  .right-panel { border-left: 2px solid #333; }
+
+  .map-area {
+    position: relative;
+    background: #000;
+  }
+
+  .map-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .grid-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-columns: repeat(40, 1fr);
+    grid-template-rows: repeat(40, 1fr);
+  }
+  .grid-overlay div {
+    border: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    position: relative;
+  }
+
+  /* Crew token style */
+  .crew-token {
+    width: 80%;
+    height: 80%;
+    border-radius: 50%;
+    margin: auto;
+  }
+
+  h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Left Panel -->
+  <div class="left-panel">
+    <h2>Crew</h2>
+    <button onclick="setActiveCrew('Rosa')">👧 Rosa</button>
+    <button onclick="setActiveCrew('Bessy')">👧 Bessy</button>
+    <button onclick="setActiveCrew('Maria')">👧 Maria</button>
+    <button onclick="setActiveCrew('Neon')">👧 Neon</button>
+    <button onclick="setActiveCrew('Sieta')">🧑‍🚀 Sieta</button>
+    <button onclick="setActiveCrew('Bessy Jr')">👩‍🎭 Bessy Jr</button>
+    <button onclick="setActiveCrew('Joshua')">🧑‍🚀 Joshua</button>
+    <button onclick="setActiveCrew('Isabella')">👩‍🎭 Isabella</button>
+    <button onclick="setActiveCrew('Bei')">👧 Bei</button>
+    <button onclick="setActiveCrew('Lucina')">👧 Lucina</button>
+    <button onclick="setActiveCrew('Helena')">👧 Helena</button>
+
+    <h2>Resources</h2>
+    <p id="power">Power: 100%</p>
+    <p id="oxygen">Oxygen: 100%</p>
+    <p id="fuel">Fuel: 100%</p>
+    <p id="coolant">Coolant: 100%</p>
+	
+	<h2>Icons: Services</h2>
+<div class="icon-placeholder">
+  <img src="icons-services.jpg" alt="Icons Menu" style="width:163px; height:500px;">
+</div>
+
+
+    <h2>Maps</h2>
+    <button onclick="setMap('cronus-map.a.jpg')">Deck A</button>
+    <button onclick="setMap('cronus-map.b.jpg')">Deck B</button>
+    <button onclick="setMap('cronus-map.c.jpg')">Deck C</button>
+    <button onclick="setMap('cronus-map.d.jpg')">Deck D</button>
+  </div>
+
+  <!-- Map Area -->
+  <div class="map-area">
+    <img id="mapImage" class="map-image" src="cronus-map.jpeg" alt="Ship Map">
+    <div class="grid-overlay" id="grid"></div>
+  </div>
+  
+
+  <!-- Right Panel -->
+<div class="right-panel">
+<div class="section">
+  <h2>🧭 Command Console</h2>
+
+  <button onclick="issueCommand('Launch')">🚀 Launch</button>
+  <button onclick="issueCommand('Abort')">⛔ Abort</button>
+  <button onclick="issueCommand('Deploy Solar Array')">🔆 Deploy Solar Array</button>
+  <button onclick="issueCommand('Adjust Thrust')">🔥 Adjust Thrust</button>
+  <button onclick="issueCommand('Land')">🪂 Land</button>
+  <button onclick="issueCommand('Dock')">🧲 Dock</button>
+  <button onclick="issueCommand('Orbit')">🌀 Orbit</button>
+  <button onclick="issueCommand('Hail')">📡 Hail</button>
+  <button onclick="issueCommand('Arm Weapons')">🛡 Arm Weapons</button>
+
+  <!-- 🌌 Warp Speed Ritual -->
+  <button onclick="issueCommand('Engage Warp Speed')">⚡ Engage Warp Speed</button>
+
+  <!-- 🧲 Gravity Toggle -->
+  <button onclick="issueCommand('Gravity Off')">🌑 Gravity Off</button>
+  <button onclick="issueCommand('Gravity On')">🌍 Gravity On</button>
+
+  <p id="commandLog" style="margin-top:10px; font-style:italic;"></p>
+</div>
+
+
+<h2>Events</h2>
+  <div id="eventLog">No events yet.</div>
+
+  <h2>Crew Stats</h2>
+  <div id="crewStats"></div>
+  
+  
+<div class="section"><h2>🧪 System Checks</h2><p><span class="highlight">Propulsion:</span> <span id="healthPropulsion">Nominal</span></p><p><span class="highlight">Communications:</span> <span id="healthComms">Nominal</span></p><p><span class="highlight">Thermal Control:</span> <span id="healthThermal">Nominal</span></p><p><span class="highlight">Power System:</span> <span id="healthPower">Nominal</span></p><p><span class="highlight">Navigation:</span> <span id="healthNavigation">Nominal</span></p><button onclick="runDiagnostics()">🔍 Run Diagnostics</button><p id="diagnosticLog" style="margin-top:10px; font-style:italic;"></p></div>
+
+
+  <h2>Ship Systems</h2>
+  <div id="shipSystems">
+    <p>Reactor: Offline</p>
+    <p>Life Support: Offline</p>
+    <p>Engines: Offline</p>
+    <p>Comms: Offline</p>
+  </div>
+
+<div class="section">
+  <h2>🧭 Auto Pilot Control</h2>
+  <button onclick="toggleAutoPilot(true)">🤖 Auto Pilot On</button>
+  <button onclick="toggleAutoPilot(false)">🛑 Auto Pilot Off</button>
+  <p id="autoPilotLog" style="margin-top:10px; font-style:italic;"></p>
+</div>
+
+  <div>
+    <h2>Trigger Events</h2>
+    <button onclick="reactorFailure()">Reactor Failure</button>
+    <button onclick="oxygenLeak()">Oxygen Leak</button>
+    <button onclick="coolantSpike()">Coolant Spike</button>
+    <button onclick="engineStress()">Engine Stress</button>
+    <button onclick="toggleAllSystems()">Toggle All Systems</button>
+  </div>
+
+  
+  <h3>Error Codes</h3>
+<div id="errorCodes">
+  <button onclick="applyFix('E101')">Fix E101:</button> // Reactor Overload
+  <button onclick="applyFix('E202')">Fix E202:</button> //Oxygen Leak
+  <button onclick="applyFix('E303')">Fix E303:</button> //Fuel Contamination
+  <button onclick="applyFix('E404')">Fix E404:</button> //Coolant Imbalance
+  <button onclick="applyFix('E501')">Fix E501:</button>// Main Airlock Damaged 
+<button onclick="applyFix('E502')">Fix E502:</button> // Air Scrubbers Offline 
+<button onclick="applyFix('E503')">Fix E503:</button> //Cryo 3 Area Sealed Off
+<button onclick="applyFix('E504')">Fix E504:</button> //Science Module Jettison Malfunction
+<button onclick="applyFix('E505')">Fix E505:</button> //Pilot Station 2 Not Operational
+<button onclick="applyFix('E506')">Fix E506: </button>//Sensor Station Damaged
+<button onclick="applyFix('E507')">Fix E507: </button>//Radiation Leak
+<button onclick="applyFix('E508')">Fix E508: </button>//Vehicle Bay Side Airlocks Damaged
+
+</div>
+
+</div>
+
+
+<script>
+function issueCommand(command) {
+  let logMessage = "";
+
+  switch(command) {
+    case "Launch":
+      logMessage = "🚀 Launch sequence initiated. Fuel and power draining, crew brace for ascent.";
+      break;
+
+    case "Abort":
+      logMessage = "⛔ Abort command issued. Systems winding down.";
+      break;
+
+    case "Deploy Solar Array":
+      logMessage = "🔆 Solar Array deployed. Power output increasing.";
+      document.getElementById("powerOutput").innerText = "100%";
+      break;
+
+    case "Adjust Thrust":
+      logMessage = "🔥 Thrust adjusted. Engines responding.";
+      break;
+
+    case "Land":
+      logMessage = "🪂 Landing sequence engaged. Prepare for descent.";
+      break;
+
+    case "Dock":
+      logMessage = "🧲 Docking procedure initiated. Aligning with station.";
+      break;
+
+    case "Orbit":
+      logMessage = "🌀 Orbit command executed. Stabilizing trajectory.";
+      break;
+
+    case "Hail":
+      logMessage = "📡 Hailing signal sent. Awaiting response.";
+      break;
+
+    case "Arm Weapons":
+      logMessage = "🛡 Weapons armed. Systems on standby.";
+      break;
+
+    case "Engage Warp Speed":
+      logMessage = "⚡ Warp Speed engaged! Ship surges forward.";
+      break;
+
+    case "Gravity Off":
+      logMessage = "🌑 Gravity systems disengaged. Crew floating.";
+      break;
+
+    case "Gravity On":
+      logMessage = "🌍 Gravity systems engaged. Normal conditions restored.";
+      break;
+
+    default:
+      logMessage = `Unknown command: ${command}`;
+  }
+
+  document.getElementById("commandLog").innerText = logMessage;
+}
+
+
+function runDiagnostics() {
+  const systems = [
+    { id: "healthPropulsion", name: "Propulsion" },
+    { id: "healthComms", name: "Communications" },
+    { id: "healthThermal", name: "Thermal Control" },
+    { id: "healthPower", name: "Power System" },
+    { id: "healthNavigation", name: "Navigation" }
+  ];
+
+  let log = "Diagnostics Report:\n";
+
+  systems.forEach(sys => {
+    // Randomize status for testing
+    const status = Math.random() > 0.2 ? "Nominal" : "⚠️ Warning";
+    document.getElementById(sys.id).innerText = status;
+    log += `${sys.name}: ${status}\n`;
+  });
+
+  document.getElementById("diagnosticLog").innerText = log;
+}
+
+
+let autoPilotEnabled = false;
+
+function toggleAutoPilot(state) {
+  autoPilotEnabled = state;
+  if(autoPilotEnabled){
+    document.getElementById("autoPilotLog").innerText = "Auto Pilot engaged — navigation systems handling course corrections.";
+    // Example effect: stabilize navigation automatically
+    resources.power = Math.max(0, resources.power - 2);
+    resources.navigation = "Stable";
+  } else {
+    document.getElementById("autoPilotLog").innerText = "Auto Pilot disengaged — manual control required.";
+  }
+  updateResources();
+  updateShipSystems();
+}
+
+
+function applyFix(code) {
+  switch(code){
+    case 'E101': resources.power = Math.min(100, resources.power+5); break;
+    case 'E202': resources.oxygen = Math.min(100, resources.oxygen+10); break;
+    case 'E303': resources.fuel = Math.min(100, resources.fuel+15); break;
+    case 'E404': resources.coolant = Math.min(100, resources.coolant+10);
+                 resources.pressure = Math.min(100, resources.pressure+5); break;
+	case 'E501': // Main Airlock Damaged (Deck A)
+  resources.oxygen = Math.max(0, resources.oxygen - 10);
+  resources.pressure = Math.max(0, resources.pressure - 5);
+  break;
+
+case 'E502': // Air Scrubbers Offline (Deck A)
+  resources.oxygen = Math.max(0, resources.oxygen - 15);
+  break;
+
+case 'E503': // Cryo 3 Area Seal Off (Deck A)
+  resources.pressure = Math.max(0, resources.pressure - 10);
+  crewStats[name].morale = Math.max(0, crewStats[name].morale - 5);
+  break;
+
+case 'E504': // Science Module Jettison Malfunction (Deck A)
+  resources.power = Math.max(0, resources.power - 10);
+  resources.fuel = Math.max(0, resources.fuel - 5);
+  break;
+
+case 'E505': // Pilot Station 2 Not Operational (Deck B)
+  resources.power = Math.max(0, resources.power - 5);
+  break;
+
+case 'E506': // Sensor Station Damaged (Deck B)
+  resources.power = Math.max(0, resources.power - 5);
+  resources.quantum = "Unstable";
+  break;
+
+case 'E507': // Radiation Leak (Deck C)
+  resources.coolant = Math.max(0, resources.coolant - 10);
+  resources.pressure = Math.max(0, resources.pressure - 10);
+  break;
+
+case 'E508': // Vehicle Bay Side Airlocks Damaged (Deck D)
+  resources.oxygen = Math.max(0, resources.oxygen - 10);
+  resources.pressure = Math.max(0, resources.pressure - 5);
+  break;
+
+  }
+  resources.quantum = resources.power < 50 ? "Unstable" : "Stable";
+  updateResources();
+  document.getElementById("eventLog").innerText = `Applied fix ${code}`;
+}
+
+
+let shipSystems = {
+  reactor: false,
+  lifeSupport: false,
+  engines: false,
+  comms: false
+};
+
+function updateShipSystems(){
+  document.getElementById("shipSystems").innerHTML =
+    `<p>Reactor: ${shipSystems.reactor ? "Online" : "Offline"}</p>
+     <p>Life Support: ${shipSystems.lifeSupport ? "Online" : "Offline"}</p>
+     <p>Engines: ${shipSystems.engines ? "Online" : "Offline"}</p>
+     <p>Comms: ${shipSystems.comms ? "Online" : "Offline"}</p>`;
+}
+
+function toggleAllSystems(){
+  shipSystems.reactor = !shipSystems.reactor;
+  shipSystems.lifeSupport = !shipSystems.lifeSupport;
+  shipSystems.engines = !shipSystems.engines;
+  shipSystems.comms = !shipSystems.comms;
+  updateShipSystems();
+  document.getElementById("eventLog").innerText =
+    `All systems toggled ${shipSystems.reactor ? "Online" : "Offline"} on Deck ${currentDeck}`;
+}
+
+// Call once at startup
+updateShipSystems();
+
+// === System Events ===
+function reactorFailure() {
+  resources.power = Math.max(0, resources.power - 20);
+  updateResources();
+  document.getElementById("eventLog").innerText = "⚠️ Reactor failure! Power drained by 20%.";
+  if (activeCrew) {
+    crewStats[activeCrew].morale = Math.max(0, crewStats[activeCrew].morale - 5);
+    updateCrewStats();
+  }
+}
+function oxygenLeak() {
+  resources.oxygen = Math.max(0, resources.oxygen - 15);
+  updateResources();
+  document.getElementById("eventLog").innerText = "⚠️ Oxygen leak! Oxygen reduced by 15%.";
+  if (activeCrew) {
+    crewStats[activeCrew].health = Math.max(0, crewStats[activeCrew].health - 5);
+    updateCrewStats();
+  }
+}
+function coolantSpike() {
+  resources.coolant = Math.max(0, resources.coolant - 10);
+  updateResources();
+  document.getElementById("eventLog").innerText = "⚠️ Coolant spike! Coolant reduced by 10%.";
+}
+function engineStress() {
+  resources.fuel = Math.max(0, resources.fuel - 10);
+  updateResources();
+  document.getElementById("eventLog").innerText = "⚠️ Engine stress! Fuel reduced by 10%.";
+}
+
+// === Crew stats ===
+const crewStats = {
+  "Rosa": {health:100, fatigue:0, morale:100, role:"crew"},
+  "Bessy": {health:100, fatigue:0, morale:100, role:"crew"},
+  "Maria": {health:100, fatigue:0, morale:100, role:"crew"},
+  "Neon": {health:100, fatigue:0, morale:100, role:"crew"},
+  "Sieta": {health:100, fatigue:0, morale:100, role:"captain"},
+  "Bessy Jr": {health:100, fatigue:0, morale:100, role:"npc"},
+  "Joshua": {health:100, fatigue:0, morale:100, role:"npc"},
+  "Isabella": {health:100, fatigue:0, morale:100, role:"npc"},
+  "Bei": {health:100, fatigue:0, morale:100, role:"crew"},
+  "Lucina": {health:100, fatigue:0, morale:100, role:"crew"},
+  "Helena": {health:100, fatigue:0, morale:100, role:"crew"}
+};
+const crewColors = {
+  "Rosa":"pink","Bessy":"orange","Maria":"purple","Neon":"lime",
+  "Sieta":"cyan","Bessy Jr":"yellow","Joshua":"blue",
+  "Isabella":"red","Bei":"magenta","Lucina":"teal","Helena":"white"
+};
+const crewTokens = {};
+const crewPositions = {};
+let activeCrew = null;
+
+// === Resources ===
+let resources = { power:100, oxygen:100, fuel:100, coolant:100 };
+function updateResources(){
+  document.getElementById("power").innerText=`Power: ${resources.power}%`;
+  document.getElementById("oxygen").innerText=`Oxygen: ${resources.oxygen}%`;
+  document.getElementById("fuel").innerText=`Fuel: ${resources.fuel}%`;
+  document.getElementById("coolant").innerText=`Coolant: ${resources.coolant}%`;
+}
+function updateCrewStats(){
+  const statsDiv=document.getElementById("crewStats");
+  statsDiv.innerHTML="";
+  if(activeCrew){
+    const s=crewStats[activeCrew];
+    statsDiv.innerHTML=`<p><strong>${activeCrew}</strong> (Role: ${s.role})<br>
+    Health: ${s.health}% | Fatigue: ${s.fatigue}% | Morale: ${s.morale}%</p>`;
+  }
+}
+function setActiveCrew(name){
+  activeCrew=name;
+  document.getElementById("eventLog").innerText=`${name} selected`;
+  updateCrewStats();
+}
+
+// === Rooms object (Deck A, restorative edits) ===
+const roomsA = {
+  "Stairwell - Upper/Lower Decks": { rows:[19,23], cols:[20,24], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Junction A-1": { rows:[19,23], cols:[25,29], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "MU/TH/UR 2000": { rows:[19,23], cols:[29,33], effect:(c)=>{ crewStats[c].morale+=10; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Air Scrubbers Shaft": { rows:[19,23], cols:[18,22], effect:(c)=>{ crewStats[c].health-=5; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Main MRL Interface": { rows:[14,18], cols:[16,20], effect:(c)=>{ crewStats[c].morale+=15; crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
+  "Cryo 1": { rows:[17,21], cols:[15,19], effect:(c)=>{ crewStats[c].health=Math.min(100,crewStats[c].health+20); crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-20); updateCrewStats(); }},
+  "Cryo 2": { rows:[21,25], cols:[15,19], effect:(c)=>{ crewStats[c].health=Math.min(100,crewStats[c].health+20); crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-20); updateCrewStats(); }},
+  "Cryo 3": { rows:[19,23], cols:[13,17], effect:(c)=>{ crewStats[c].health=Math.min(100,crewStats[c].health+20); crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-20); updateCrewStats(); }},
+  "Examination Room": { rows:[19,23], cols:[11,15], effect:(c)=>{ crewStats[c].morale-=20; crewStats[c].fatigue+=10; updateCrewStats(); }},
+  "Showers & Wardrobe 1": { rows:[22,26], cols:[11,15], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-15); crewStats[c].morale+=10; updateCrewStats(); }},
+  "Showers & Wardrobe 2": { rows:[16,20], cols:[11,15], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-15); crewStats[c].morale+=10; updateCrewStats(); }},
+  "Junction A-2": { rows:[19,23], cols:[7,11], effect:(c)=>{ reactorFailure(); crewStats[c].morale=Math.max(0,crewStats[c].morale-10); updateCrewStats(); }},
+  "Quantum Log": { rows:[25,29], cols:[16,20], effect:(c)=>{ crewStats[c].morale-=30; crewStats[c].fatigue+=20; updateCrewStats(); }}
+};
+
+
+// === Rooms object (Deck B, restorative edits) ===
+const rooms = {
+  "Bridge": { rows:[19,23], cols:[34,38], effect:(c)=>{ crewStats[c].morale=Math.min(100,crewStats[c].morale+2); updateCrewStats(); }},
+  "Med Lab": { rows:[15,19], cols:[12,16], effect:(c)=>{ crewStats[c].health=Math.min(100,crewStats[c].health+20); crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
+  "Reactor Core": { rows:[19,23], cols:[7,11], effect:(c)=>{ reactorFailure(); crewStats[c].morale=Math.max(0,crewStats[c].morale-5); updateCrewStats(); }},
+  "Science Module": { rows:[19,23], cols:[3,7], effect:(c)=>{ crewStats[c].morale=Math.min(100,crewStats[c].morale+1); updateCrewStats(); }},
+  "Mess Hall": { rows:[23,27], cols:[19,23], effect:(c)=>{ crewStats[c].health=Math.min(100,crewStats[c].health+10); crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-15); crewStats[c].morale=Math.min(100,crewStats[c].morale+15); updateCrewStats(); }},
+  "Pilot Station 1": { rows:[16,20], cols:[32,36], effect:(c)=>{ crewStats[c].fatigue+=2; crewStats[c].morale+=1; updateCrewStats(); }},
+  "Pilot Station 2": { rows:[21,25], cols:[32,36], effect:(c)=>{ crewStats[c].fatigue+=2; crewStats[c].morale+=1; updateCrewStats(); }},
+  "Life Support": { rows:[21,25], cols:[30,34], effect:(c)=>{ crewStats[c].health+=5; crewStats[c].morale+=2; updateCrewStats(); }},
+  "Sensor Station": { rows:[16,20], cols:[30,34], effect:(c)=>{ crewStats[c].fatigue+=5; crewStats[c].morale-=2; updateCrewStats(); }},
+  "Holo Display Table": { rows:[19,23], cols:[31,35], effect:(c)=>{ crewStats[c].morale+=2; updateCrewStats(); }},
+  "Comm Station": { rows:[19,23], cols:[29,33], effect:(c)=>{ crewStats[c].morale+=3; updateCrewStats(); }},
+  "Junction B-1": { rows:[19,23], cols:[25,29], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Vestible 1 - Armory": { rows:[15,19], cols:[25,29], effect:(c)=>{ crewStats[c].morale-=5; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Vestible 2 - EVA Suits": { rows:[23,27], cols:[25,29], effect:(c)=>{ crewStats[c].morale+=2; crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-2); updateCrewStats(); }},
+  "Storage Closet": { rows:[15,19], cols:[22,26], effect:(c)=>{ crewStats[c].fatigue+=3; updateCrewStats(); }},
+  "Stairwell - Upper/Lower Decks": { rows:[19,23], cols:[20,24], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Air Scrubbers Shaft": { rows:[19,23], cols:[18,22], effect:(c)=>{ crewStats[c].health-=5; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Corporate Suite w/EEV": { rows:[15,19], cols:[19,23], effect:(c)=>{ crewStats[c].health=Math.min(100,crewStats[c].health+15); crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-20); crewStats[c].morale=Math.min(100,crewStats[c].morale+20); updateCrewStats(); }},
+ 
+  "Mech A": { rows:[25,29], cols:[16,20], effect:(c)=>{ crewStats[c].fatigue+=5; crewStats[c].morale-=2; updateCrewStats(); }},
+  "Living Area 1": {
+    rows:[23,27], cols:[15,19],
+    effect:(c)=>{
+      document.getElementById("eventLog").innerText += " — Rest and comfort.";
+      crewStats[c].health = Math.min(100, crewStats[c].health+10);
+      crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-20);
+      crewStats[c].morale = Math.min(100, crewStats[c].morale+20);
+      updateCrewStats();
+    }
+  },
+  "Living Area 2": {
+    rows:[19,23], cols:[15,19],
+    effect:(c)=>{
+      document.getElementById("eventLog").innerText += " — Rest and comfort.";
+      crewStats[c].health = Math.min(100, crewStats[c].health+10);
+      crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-20);
+      crewStats[c].morale = Math.min(100, crewStats[c].morale+20);
+      updateCrewStats();
+    }
+  },
+  "Living Area 3": {
+    rows:[15,19], cols:[15,19],
+    effect:(c)=>{
+      document.getElementById("eventLog").innerText += " — Rest and comfort.";
+      crewStats[c].health = Math.min(100, crewStats[c].health+10);
+      crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-20);
+      crewStats[c].morale = Math.min(100, crewStats[c].morale+20);
+      updateCrewStats();
+    }
+  },
+  "Captain Quarters": {
+  rows:[15,19], cols:[17,21],
+  effect:(c)=>{
+    document.getElementById("eventLog").innerText += " — Private sanctuary.";
+    crewStats[c].health = Math.min(100, crewStats[c].health+20);
+    crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-25);
+    crewStats[c].morale = Math.min(100, crewStats[c].morale+25);
+    updateCrewStats();
+  }
+},
+"Mech B": {
+  rows:[12,16], cols:[16,20],
+  effect:(c)=>{
+    document.getElementById("eventLog").innerText += " — Mechanical strain.";
+    crewStats[c].fatigue+=5;
+    crewStats[c].morale-=2;
+    updateCrewStats();
+  }
+},
+
+  "Access Terminal": {
+    rows:[21,25], cols:[14,18],
+    effect:(c)=>{
+      crewStats[c].morale+=3;
+      crewStats[c].fatigue+=2;
+      updateCrewStats();
+    }
+  },
+  "Medpods": {
+    rows:[15,19], cols:[10,14],
+    effect:(c)=>{
+      document.getElementById("eventLog").innerText += " — Intensive healing.";
+      crewStats[c].health = 100; // full restore
+      crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-30);
+      crewStats[c].morale = Math.min(100, crewStats[c].morale+10);
+      updateCrewStats();
+    }
+  },
+  "Sci Lab 2": { rows:[21,25], cols:[12,16], effect:(c)=>{ crewStats[c].morale+=2; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Sci Lab 1 w/storage": { rows:[23,27], cols:[10,14], effect:(c)=>{ crewStats[c].morale+=2; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Junction B2": { rows:[19,23], cols:[10,14], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Command Station": { rows:[19,23], cols:[36,40], effect:(c)=>{ crewStats[c].fatigue+=10; crewStats[c].morale-=5; updateCrewStats(); }}
+};
+
+
+// === Rooms object (Deck C, Cargo Deck) ===
+const roomsC = {
+  "Junction C-1": { rows:[19,23], cols:[25,29], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Cargo Bay 1": { rows:[14,18], cols:[19,23], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); crewStats[c].morale+=10; updateCrewStats(); }},
+  "Cargo Bay 2": { rows:[23,27], cols:[19,23], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-15); crewStats[c].morale+=15; updateCrewStats(); }},
+  "Catwalk 1 - Open to Deck D": { rows:[21,25], cols:[17,21], effect:(c)=>{ crewStats[c].morale+=5; updateCrewStats(); }},
+  "Catwalk 2 - Open to Deck D": { rows:[17,21], cols:[17,21], effect:(c)=>{ crewStats[c].morale+=5; updateCrewStats(); }},
+  "Catwalk 3 - Open Center to Deck D": { rows:[19,23], cols:[13,17], effect:(c)=>{ crewStats[c].morale+=5; updateCrewStats(); }},
+  "Cargo Office": { rows:[13,17], cols:[15,19], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Balcony & Asset Log": { rows:[19,23], cols:[11,15], effect:(c)=>{ crewStats[c].morale+=10; updateCrewStats(); }},
+  "Junction C-2": { rows:[19,23], cols:[7,11], effect:(c)=>{ reactorFailure(); crewStats[c].morale-=10; updateCrewStats(); }},
+  "Coolant Tank 1": { rows:[14,18], cols:[9,13], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
+  "Coolant Tank 2": { rows:[23,27], cols:[9,13], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
+  "Maintenance 1": { rows:[15,19], cols:[11,15], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Maintenance 2": { rows:[23,27], cols:[11,15], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Reactor Relay Control": { rows:[23,27], cols:[7,11], effect:(c)=>{ crewStats[c].morale-=20; crewStats[c].fatigue+=10; updateCrewStats(); }},
+  "Storage Closet 1": { rows:[14,18], cols:[23,27], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Storage Closet 2": { rows:[23,27], cols:[23,27], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }}
+};
+
+// === Rooms object (Deck D, Vehicle Deck) ===
+const roomsD = {
+  "Vehicle Bay": { rows:[19,23], cols:[17,21], effect:(c)=>{ crewStats[c].morale+=5; crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
+  "Equipment Shed": { rows:[15,19], cols:[7,11], effect:(c)=>{ crewStats[c].fatigue+=10; crewStats[c].morale-=5; updateCrewStats(); }},
+  "Vehicle Parts & Storage": { rows:[19,23], cols:[7,11], effect:(c)=>{ reactorFailure(); crewStats[c].morale-=10; updateCrewStats(); }},
+  "Dispatch Office": { rows:[25,29], cols:[7,11], effect:(c)=>{ crewStats[c].fatigue+=5; crewStats[c].morale-=10; updateCrewStats(); }}
+};
+
+let currentDeck = "B"; // default starting deck
+
+function crewMove(row, col, name) {
+  let deckRooms;
+  if (currentDeck === "A") deckRooms = roomsA;
+  else if (currentDeck === "B") deckRooms = roomsB;
+  else if (currentDeck === "C") deckRooms = roomsC;
+  else if (currentDeck === "D") deckRooms = roomsD;
+  else {
+    console.error("Deck not defined:", currentDeck);
+    return;
+  }
+
+  let inRoom = false;
+  for (const room in deckRooms) {
+    const {rows, cols, effect} = deckRooms[room];
+    if (row >= rows[0] && row <= rows[1] && col >= cols[0] && col <= cols[1]) {
+      document.getElementById("eventLog").innerText =
+        `${name} arrived at Row ${row+1}, Column ${col+1} (${room})`;
+      if (effect) effect(name);
+      inRoom = true;
+      break;
+    }
+  }
+
+  if (!inRoom) {
+    resources.oxygen = Math.max(0, resources.oxygen - 1);
+    resources.power = Math.max(0, resources.power - 1);
+    crewStats[name].fatigue = Math.min(100, crewStats[name].fatigue + 2);
+    crewStats[name].morale = Math.max(0, crewStats[name].morale - 1);
+    document.getElementById("eventLog").innerText =
+      `${name} arrived at Row ${row+1}, Column ${col+1}`;
+  }
+
+  updateResources();
+  updateCrewStats();
+}
+function setMap(filename, deck) {
+  document.getElementById("mapImage").src = filename;
+  currentDeck = deck; // "A", "B", "C", or "D"
+  resources.fuel = Math.max(0, resources.fuel - 5);
+  updateResources();
+  document.getElementById("eventLog").innerText = `Switched to ${filename} (Deck ${deck})`;
+  for (const crew in crewTokens) {
+    if (crewTokens[crew]) {
+      crewTokens[crew].remove();
+      crewTokens[crew] = null;
+      crewPositions[crew] = null;
+    }
+  }
+}
+
+// === Crew movement ===
+function crewMove(row, col, name) {
+  let inRoom = false;
+
+  for(const room in rooms){
+    const {rows,cols,effect}=rooms[room];
+    if(row>=rows[0] && row<=rows[1] && col>=cols[0] && col<=cols[1]){
+      document.getElementById("eventLog").innerText =
+        `${name} arrived at Row ${row+1}, Column ${col+1} (${room})`;
+      if(effect) effect(name);
+      inRoom = true;
+      break;
+    }
+  }
+
+  if(!inRoom){
+    resources.oxygen = Math.max(0, resources.oxygen - 1);
+    resources.power = Math.max(0, resources.power - 1);
+    crewStats[name].fatigue = Math.min(100, crewStats[name].fatigue + 2);
+    crewStats[name].morale = Math.max(0, crewStats[name].morale - 1);
+    document.getElementById("eventLog").innerText =
+      `${name} arrived at Row ${row+1}, Column ${col+1}`;
+  }
+
+  updateResources();
+  updateCrewStats();
+}
+
+function crewMove(row, col, name){
+  let deckRooms;
+  if(currentDeck==="A") deckRooms=roomsA;
+  else if(currentDeck==="B") deckRooms=roomsB;
+  else if(currentDeck==="C") deckRooms=roomsC;
+  else if(currentDeck==="D") deckRooms=roomsD;
+
+  let inRoom=false;
+  if(deckRooms){
+    for(const room in deckRooms){
+      const {rows,cols,effect}=deckRooms[room];
+      if(row>=rows[0]&&row<=rows[1]&&col>=cols[0]&&col<=cols[1]){
+        document.getElementById("eventLog").innerText=`${name} arrived at Row ${row+1}, Col ${col+1} (${room})`;
+        if(effect) effect(name);
+
+        // Rosa’s special ability: stabilize atmosphere
+        if(name==="Rosa"){
+          resources.pressure = Math.min(100, resources.pressure+5);
+          resources.oxygen = Math.min(100, resources.oxygen+3);
+          document.getElementById("eventLog").innerText += " — Rosa stabilized atmosphere and pressure.";
+        }
+
+        inRoom=true; break;
+      }
+    }
+  }
+  if(!inRoom){
+    resources.oxygen = Math.max(0, resources.oxygen - 1);
+    resources.power = Math.max(0, resources.power - 1);
+    if (!crewStats[name]) crewStats[name] = { fatigue:0, morale:100 };
+    crewStats[name].fatigue = Math.min(100, crewStats[name].fatigue + 2);
+    crewStats[name].morale = Math.max(0, crewStats[name].morale - 1);
+    document.getElementById("eventLog").innerText = `${name} arrived at Row ${row+1}, Col ${col+1}`;
+  }
+
+  updateResources();
+  updateCrewStats();
+  updateShipSystems();
+}
+
+
+// === Map switching ===
+function setMap(filename) {
+  document.getElementById("mapImage").src = filename;
+  resources.fuel = Math.max(0, resources.fuel - 5);
+  updateResources();
+  document.getElementById("eventLog").innerText = `Switched to ${filename}`;
+  for (const crew in crewTokens) {
+    if (crewTokens[crew]) {
+      crewTokens[crew].remove();
+      crewTokens[crew] = null;
+      crewPositions[crew] = null;
+    }
+  }
+}
+
+// === Pathfinding animation ===
+function moveCrewAnimated(name, targetRow, targetCol) {
+  if (!crewTokens[name]) return;
+  let currentRow = crewPositions[name]?.row ?? 0;
+  let currentCol = crewPositions[name]?.col ?? 0;
+  const steps = [];
+  while (currentCol !== targetCol) {
+    currentCol += (targetCol > currentCol ? 1 : -1);
+    steps.push({row: currentRow, col: currentCol});
+  }
+  while (currentRow !== targetRow) {
+    currentRow += (targetRow > currentRow ? 1 : -1);
+    steps.push({row: currentRow, col: currentCol});
+  }
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i >= steps.length) {
+      clearInterval(interval);
+      crewPositions[name] = {row: targetRow, col: targetCol};
+      crewMove(targetRow, targetCol, name);
+      return;
+    }
+    crewTokens[name].remove();
+    const step = steps[i];
+    const cell = [...grid.children].find(c =>
+      parseInt(c.dataset.row) === step.row &&
+      parseInt(c.dataset.col) === step.col
+    );
+    const token = document.createElement("div");
+    token.classList.add("crew-token");
+    token.style.backgroundColor = crewColors[name];
+    cell.appendChild(token);
+    crewTokens[name] = token;
+    i++;
+  }, 200);
+}
+
+// === Build grid ===
+const grid=document.getElementById("grid");
+for(let row=0;row<40;row++){
+  for(let col=0;col<40;col++){
+    const cell=document.createElement("div");
+    cell.dataset.row=row;
+    cell.dataset.col=col;
+    cell.addEventListener("click",()=>{
+      if(!activeCrew){
+        document.getElementById("eventLog").innerText="No crew selected!";
+        return;
+      }
+      if(!crewTokens[activeCrew]){
+        const token=document.createElement("div");
+        token.classList.add("crew-token");
+        token.style.backgroundColor=crewColors[activeCrew];
+        cell.appendChild(token);
+        crewTokens[activeCrew]=token;
+        crewPositions[activeCrew]={row,col};
+        crewMove(row,col,activeCrew);
+      } else {
+        moveCrewAnimated(activeCrew,row,col);
+      }
+    });
+    grid.appendChild(cell);
+  }
+}
+
+// === Initialize displays ===
+updateResources();
+updateCrewStats();
+</script>
+
+</body>
+</html>
