@@ -84,15 +84,11 @@
     <button onclick="setActiveCrew('Lucina')">👧 Lucina</button>
     <button onclick="setActiveCrew('Helena')">👧 Helena</button>
 
-   <div id="resources">
-  <p>Power: <span id="power">99%</span></p>
-  <p>Oxygen: <span id="oxygen">99%</span></p>
-  <p>Fuel: <span id="fuel">65%</span></p>
-  <p>Coolant: <span id="coolant">100%</span></p>
-  <p>Pressure Levels: <span id="pressure">100%</span></p>
-  <p>Quantum Flow: <span id="quantum">Stable</span></p>
-</div>
-
+    <h2>Resources</h2>
+    <p id="power">Power: 100%</p>
+    <p id="oxygen">Oxygen: 100%</p>
+    <p id="fuel">Fuel: 100%</p>
+    <p id="coolant">Coolant: 100%</p>
 	
 	<h2>Icons: Services</h2>
 <div class="icon-placeholder">
@@ -138,54 +134,79 @@
 
   <h2>Crew Stats</h2>
   <div id="crewStats"></div>
-</div>
-<!-- Error Codes Section -->
-<h3>Error Codes</h3>
+  
+  
+  <h3>Error Codes</h3>
 <div id="errorCodes">
-  <button onclick="applyFix('E101')">Fix E101: Reactor Overload</button>
-  <button onclick="applyFix('E202')">Fix E202: Oxygen Leak</button>
-  <button onclick="applyFix('E303')">Fix E303: Fuel Contamination</button>
-  <button onclick="applyFix('E404')">Fix E404: Coolant Imbalance</button>
+  <button onclick="applyFix('E101')">Fix E101:</button> // Reactor Overload
+  <button onclick="applyFix('E202')">Fix E202:</button> //Oxygen Leak
+  <button onclick="applyFix('E303')">Fix E303:</button> //Fuel Contamination
+  <button onclick="applyFix('E404')">Fix E404:</button> //Coolant Imbalance
+  <button onclick="applyFix('E501')">Fix E501:</button>// Main Airlock Damaged 
+<button onclick="applyFix('E502')">Fix E502:</button> // Air Scrubbers Offline 
+<button onclick="applyFix('E503')">Fix E503:</button> //Cryo 3 Area Sealed Off
+<button onclick="applyFix('E504')">Fix E504:</button> //Science Module Jettison Malfunction
+<button onclick="applyFix('E505')">Fix E505:</button> //Pilot Station 2 Not Operational
+<button onclick="applyFix('E506')">Fix E506: </button>//Sensor Station Damaged
+<button onclick="applyFix('E507')">Fix E507: </button>//Radiation Leak
+<button onclick="applyFix('E508')">Fix E508: </button>//Vehicle Bay Side Airlocks Damaged
+
+</div>
+
+  
 </div>
 
 
 <script>
-function applyFix(code){
+function applyFix(code) {
   switch(code){
-    case 'E101': // Reactor Overload
-      resources.power = Math.min(100, resources.power + 5);
-      document.getElementById("eventLog").innerText = "Applied fix E101: Reactor stabilized.";
-      break;
+    case 'E101': resources.power = Math.min(100, resources.power+5); break;
+    case 'E202': resources.oxygen = Math.min(100, resources.oxygen+10); break;
+    case 'E303': resources.fuel = Math.min(100, resources.fuel+15); break;
+    case 'E404': resources.coolant = Math.min(100, resources.coolant+10);
+                 resources.pressure = Math.min(100, resources.pressure+5); break;
+	case 'E501': // Main Airlock Damaged (Deck A)
+  resources.oxygen = Math.max(0, resources.oxygen - 10);
+  resources.pressure = Math.max(0, resources.pressure - 5);
+  break;
 
-    case 'E202': // Oxygen Leak
-      resources.oxygen = Math.min(100, resources.oxygen + 10);
-      document.getElementById("eventLog").innerText = "Applied fix E202: Oxygen leak sealed.";
-      break;
+case 'E502': // Air Scrubbers Offline (Deck A)
+  resources.oxygen = Math.max(0, resources.oxygen - 15);
+  break;
 
-    case 'E303': // Fuel Contamination
-      resources.fuel = Math.min(100, resources.fuel + 15);
-      document.getElementById("eventLog").innerText = "Applied fix E303: Fuel purified.";
-      break;
+case 'E503': // Cryo 3 Area Seal Off (Deck A)
+  resources.pressure = Math.max(0, resources.pressure - 10);
+  crewStats[name].morale = Math.max(0, crewStats[name].morale - 5);
+  break;
 
-    case 'E404': // Coolant Imbalance
-      resources.coolant = Math.min(100, resources.coolant + 10);
-      resources.pressure = Math.min(100, (resources.pressure || 100) + 5);
-      document.getElementById("eventLog").innerText = "Applied fix E404: Coolant balanced.";
-      break;
+case 'E504': // Science Module Jettison Malfunction (Deck A)
+  resources.power = Math.max(0, resources.power - 10);
+  resources.fuel = Math.max(0, resources.fuel - 5);
+  break;
+
+case 'E505': // Pilot Station 2 Not Operational (Deck B)
+  resources.power = Math.max(0, resources.power - 5);
+  break;
+
+case 'E506': // Sensor Station Damaged (Deck B)
+  resources.power = Math.max(0, resources.power - 5);
+  resources.quantum = "Unstable";
+  break;
+
+case 'E507': // Radiation Leak (Deck C)
+  resources.coolant = Math.max(0, resources.coolant - 10);
+  resources.pressure = Math.max(0, resources.pressure - 10);
+  break;
+
+case 'E508': // Vehicle Bay Side Airlocks Damaged (Deck D)
+  resources.oxygen = Math.max(0, resources.oxygen - 10);
+  resources.pressure = Math.max(0, resources.pressure - 5);
+  break;
+
   }
-
-  // Update new metrics
-  resources.pressure = resources.pressure || 100;
-  resources.quantum = resources.quantum || "Stable";
-
-  // Example dynamic change
-  if(resources.power < 50){
-    resources.quantum = "Unstable";
-  } else {
-    resources.quantum = "Stable";
-  }
-
+  resources.quantum = resources.power < 50 ? "Unstable" : "Stable";
   updateResources();
+  document.getElementById("eventLog").innerText = `Applied fix ${code}`;
 }
 
 
@@ -197,13 +218,12 @@ let shipSystems = {
 };
 
 function updateShipSystems(){
-  document.getElementById("shipSystems").innerText =
-    `Reactor: ${shipSystems.reactor ? "Online" : "Offline"} (Deck ${currentDeck})
-Life Support: ${shipSystems.lifeSupport ? "Online" : "Offline"} (Deck ${currentDeck})
-Engines: ${shipSystems.engines ? "Online" : "Offline"} (Deck ${currentDeck})
-Comms: ${shipSystems.comms ? "Online" : "Offline"} (Deck ${currentDeck})`;
+  document.getElementById("shipSystems").innerHTML =
+    `<p>Reactor: ${shipSystems.reactor ? "Online" : "Offline"}</p>
+     <p>Life Support: ${shipSystems.lifeSupport ? "Online" : "Offline"}</p>
+     <p>Engines: ${shipSystems.engines ? "Online" : "Offline"}</p>
+     <p>Comms: ${shipSystems.comms ? "Online" : "Offline"}</p>`;
 }
-
 
 function toggleAllSystems(){
   shipSystems.reactor = !shipSystems.reactor;
@@ -474,27 +494,12 @@ function crewMove(row, col, name) {
   updateResources();
   updateCrewStats();
 }
-function setMap(filename){
-  // Update the map image
+function setMap(filename, deck) {
   document.getElementById("mapImage").src = filename;
-
-  // Extract deck ID from filename (cronus-map.a.jpg, cronus-map.b.jpg, etc.)
-  const match = filename.match(/cronus-map\.(a|b|c|d)/i);
-  if (match) {
-    currentDeck = match[1].toUpperCase(); // A, B, C, or D
-  } else {
-    currentDeck = "?"; // fallback if filename doesn't match
-  }
-
-  // Fuel cost for switching decks
+  currentDeck = deck; // "A", "B", "C", or "D"
   resources.fuel = Math.max(0, resources.fuel - 5);
   updateResources();
-
-  // Log the deck switch
-  document.getElementById("eventLog").innerText =
-    `Switched to ${filename} (Deck ${currentDeck})`;
-
-  // Clear crew tokens when changing decks
+  document.getElementById("eventLog").innerText = `Switched to ${filename} (Deck ${deck})`;
   for (const crew in crewTokens) {
     if (crewTokens[crew]) {
       crewTokens[crew].remove();
@@ -502,50 +507,35 @@ function setMap(filename){
       crewPositions[crew] = null;
     }
   }
-
-  // Refresh Ship Systems panel with new deck ID
-  updateShipSystems();
 }
 
 // === Crew movement ===
-function crewMove(row, col, name){
-  // Select the correct room set based on currentDeck
-  let deckRooms;
-  if (currentDeck === "A") deckRooms = roomsA;
-  else if (currentDeck === "B") deckRooms = roomsB;
-  else if (currentDeck === "C") deckRooms = roomsC;
-  else if (currentDeck === "D") deckRooms = roomsD;
-  else deckRooms = {}; // fallback
-
+function crewMove(row, col, name) {
   let inRoom = false;
 
-  // Check if crew is inside a defined room
-  for (const room in deckRooms){
-    const {rows, cols, effect} = deckRooms[room];
-    if (row >= rows[0] && row <= rows[1] && col >= cols[0] && col <= cols[1]){
+  for(const room in rooms){
+    const {rows,cols,effect}=rooms[room];
+    if(row>=rows[0] && row<=rows[1] && col>=cols[0] && col<=cols[1]){
       document.getElementById("eventLog").innerText =
-        `${name} arrived at Row ${row+1}, Col ${col+1} (${room}) on Deck ${currentDeck}`;
-      if (effect) effect(name);
+        `${name} arrived at Row ${row+1}, Column ${col+1} (${room})`;
+      if(effect) effect(name);
       inRoom = true;
       break;
     }
   }
 
-  // Corridor movement (not inside a room)
-  if (!inRoom){
-    resources.oxygen--;
-    resources.power--;
-    crewStats[name].fatigue += 2;
-    crewStats[name].morale--;
+  if(!inRoom){
+    resources.oxygen = Math.max(0, resources.oxygen - 1);
+    resources.power = Math.max(0, resources.power - 1);
+    crewStats[name].fatigue = Math.min(100, crewStats[name].fatigue + 2);
+    crewStats[name].morale = Math.max(0, crewStats[name].morale - 1);
     document.getElementById("eventLog").innerText =
-      `${name} arrived at Row ${row+1}, Col ${col+1} (corridor) on Deck ${currentDeck}`;
+      `${name} arrived at Row ${row+1}, Column ${col+1}`;
   }
 
   updateResources();
   updateCrewStats();
-  updateShipSystems();
 }
-
 
 // === Map switching ===
 function setMap(filename) {
@@ -599,38 +589,37 @@ function moveCrewAnimated(name, targetRow, targetCol) {
   }, 200);
 }
 
-// =======================================================
-// Build Grid (40x40 clickable cells)
-// =======================================================
-const grid = document.getElementById("grid");
-
-for (let row = 0; row < 40; row++) {
-  for (let col = 0; col < 40; col++) {
-    const cell = document.createElement("div");
-    cell.dataset.row = row;
-    cell.dataset.col = col;
-
-    // When a cell is clicked, move the active crew
-    cell.addEventListener("click", () => {
-      // If crew token doesn't exist yet, create it
-      if (!crewTokens[activeCrew]) {
-        const token = document.createElement("div");
-        token.className = "crew-token";
-        token.style.backgroundColor = crewColors[activeCrew];
-        cell.appendChild(token);
-
-        crewTokens[activeCrew] = token;
-        crewPositions[activeCrew] = { row, col };
+// === Build grid ===
+const grid=document.getElementById("grid");
+for(let row=0;row<40;row++){
+  for(let col=0;col<40;col++){
+    const cell=document.createElement("div");
+    cell.dataset.row=row;
+    cell.dataset.col=col;
+    cell.addEventListener("click",()=>{
+      if(!activeCrew){
+        document.getElementById("eventLog").innerText="No crew selected!";
+        return;
       }
-
-      // Move crew into this cell
-      crewMove(row, col, activeCrew);
+      if(!crewTokens[activeCrew]){
+        const token=document.createElement("div");
+        token.classList.add("crew-token");
+        token.style.backgroundColor=crewColors[activeCrew];
+        cell.appendChild(token);
+        crewTokens[activeCrew]=token;
+        crewPositions[activeCrew]={row,col};
+        crewMove(row,col,activeCrew);
+      } else {
+        moveCrewAnimated(activeCrew,row,col);
+      }
     });
-
     grid.appendChild(cell);
   }
 }
 
+// === Initialize displays ===
+updateResources();
+updateCrewStats();
 </script>
 
 </body>
