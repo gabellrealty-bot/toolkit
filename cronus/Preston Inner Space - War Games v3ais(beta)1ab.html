@@ -84,11 +84,19 @@
     <button onclick="setActiveCrew('Lucina')">👧 Lucina</button>
     <button onclick="setActiveCrew('Helena')">👧 Helena</button>
 
-    <h2>Resources</h2>
-    <p id="power">Power: 100%</p>
-    <p id="oxygen">Oxygen: 100%</p>
-    <p id="fuel">Fuel: 100%</p>
-    <p id="coolant">Coolant: 100%</p>
+  <div id="leftPanel">
+    <h3>Resources</h3>
+    <div id="resources">
+      <p>Power: <span id="power">99%</span></p>
+      <p>Oxygen: <span id="oxygen">99%</span></p>
+      <p>Fuel: <span id="fuel">65%</span></p>
+      <p>Coolant: <span id="coolant">100%</span></p>
+      <p>Pressure Levels: <span id="pressure">100%</span></p>
+      <p>Quantum Flow: <span id="quantum">Stable</span></p>
+    </div>
+    <h3>Event Log</h3>
+    <div id="eventLog">System initialized.</div>
+  </div>
 	
 	<h2>Icons: Services</h2>
 <div class="icon-placeholder">
@@ -134,10 +142,63 @@
 
   <h2>Crew Stats</h2>
   <div id="crewStats"></div>
+  
+  <h3>Error Codes</h3>
+    <div id="errorCodes">
+      <button onclick="applyFix('E101')">Fix E101: Reactor Overload</button>
+      <button onclick="applyFix('E202')">Fix E202: Oxygen Leak</button>
+      <button onclick="applyFix('E303')">Fix E303: Fuel Contamination</button>
+      <button onclick="applyFix('E404')">Fix E404: Coolant Imbalance</button>
+    </div>
+
+    <h3>Ship Systems</h3>
+    <div id="shipSystems">Systems nominal.</div>
+  </div>
 </div>
 
 
 <script>
+let resources = { power:99, oxygen:99, fuel:65, coolant:100, pressure:100, quantum:"Stable" };
+let crewStats = { Rosa:{fatigue:0,morale:100}, Neon:{fatigue:0,morale:100} };
+let crewTokens = {}, crewPositions = {}, crewColors = {Rosa:"red", Neon:"blue"};
+let activeCrew = "Rosa";
+let currentDeck = "B";
+
+// ================== Resource Updates ==================
+function updateResources(){
+  document.getElementById("power").innerText = resources.power+"%";
+  document.getElementById("oxygen").innerText = resources.oxygen+"%";
+  document.getElementById("fuel").innerText = resources.fuel+"%";
+  document.getElementById("coolant").innerText = resources.coolant+"%";
+  document.getElementById("pressure").innerText = resources.pressure+"%";
+  document.getElementById("quantum").innerText = resources.quantum;
+}
+
+// ================== Ship Systems ==================
+let shipSystems = { reactor:true, lifeSupport:true, engines:true, comms:true };
+function updateShipSystems(){
+  document.getElementById("shipSystems").innerText =
+    `Reactor: ${shipSystems.reactor?"ON":"OFF"} | Life Support: ${shipSystems.lifeSupport?"ON":"OFF"} | Engines: ${shipSystems.engines?"ON":"OFF"} | Comms: ${shipSystems.comms?"ON":"OFF"} (Deck ${currentDeck})`;
+}
+
+// ================== Events ==================
+function reactorFailure(){ resources.power -= 20; updateResources(); document.getElementById("eventLog").innerText="Reactor failure triggered."; }
+function oxygenLeak(){ resources.oxygen -= 15; updateResources(); document.getElementById("eventLog").innerText="Oxygen leak detected."; }
+function fuelSpike(){ resources.fuel -= 10; updateResources(); document.getElementById("eventLog").innerText="Fuel spike occurred."; }
+function coolantSpike(){ resources.coolant -= 10; updateResources(); document.getElementById("eventLog").innerText="Coolant spike detected."; }
+
+// ================== Error Fixes ==================
+function applyFix(code){
+  switch(code){
+    case 'E101': resources.power=Math.min(100,resources.power+5); document.getElementById("eventLog").innerText="Fix E101 applied."; break;
+    case 'E202': resources.oxygen=Math.min(100,resources.oxygen+10); document.getElementById("eventLog").innerText="Fix E202 applied."; break;
+    case 'E303': resources.fuel=Math.min(100,resources.fuel+15); document.getElementById("eventLog").innerText="Fix E303 applied."; break;
+    case 'E404': resources.coolant=Math.min(100,resources.coolant+10); resources.pressure=Math.min(100,resources.pressure+5); document.getElementById("eventLog").innerText="Fix E404 applied."; break;
+  }
+  resources.quantum = resources.power<50 ? "Unstable" : "Stable";
+  updateResources();
+}
+
 let shipSystems = {
   reactor: false,
   lifeSupport: false,
@@ -146,13 +207,12 @@ let shipSystems = {
 };
 
 function updateShipSystems(){
-  document.getElementById("shipSystems").innerText =
-    `Reactor: ${shipSystems.reactor ? "Online" : "Offline"} (Deck ${currentDeck})
-Life Support: ${shipSystems.lifeSupport ? "Online" : "Offline"} (Deck ${currentDeck})
-Engines: ${shipSystems.engines ? "Online" : "Offline"} (Deck ${currentDeck})
-Comms: ${shipSystems.comms ? "Online" : "Offline"} (Deck ${currentDeck})`;
+  document.getElementById("shipSystems").innerHTML =
+    `<p>Reactor: ${shipSystems.reactor ? "Online" : "Offline"}</p>
+     <p>Life Support: ${shipSystems.lifeSupport ? "Online" : "Offline"}</p>
+     <p>Engines: ${shipSystems.engines ? "Online" : "Offline"}</p>
+     <p>Comms: ${shipSystems.comms ? "Online" : "Offline"}</p>`;
 }
-
 
 function toggleAllSystems(){
   shipSystems.reactor = !shipSystems.reactor;
@@ -423,27 +483,12 @@ function crewMove(row, col, name) {
   updateResources();
   updateCrewStats();
 }
-function setMap(filename){
-  // Update the map image
+function setMap(filename, deck) {
   document.getElementById("mapImage").src = filename;
-
-  // Extract deck ID from filename (cronus-map.a.jpg, cronus-map.b.jpg, etc.)
-  const match = filename.match(/cronus-map\.(a|b|c|d)/i);
-  if (match) {
-    currentDeck = match[1].toUpperCase(); // A, B, C, or D
-  } else {
-    currentDeck = "?"; // fallback if filename doesn't match
-  }
-
-  // Fuel cost for switching decks
+  currentDeck = deck; // "A", "B", "C", or "D"
   resources.fuel = Math.max(0, resources.fuel - 5);
   updateResources();
-
-  // Log the deck switch
-  document.getElementById("eventLog").innerText =
-    `Switched to ${filename} (Deck ${currentDeck})`;
-
-  // Clear crew tokens when changing decks
+  document.getElementById("eventLog").innerText = `Switched to ${filename} (Deck ${deck})`;
   for (const crew in crewTokens) {
     if (crewTokens[crew]) {
       crewTokens[crew].remove();
@@ -451,50 +496,35 @@ function setMap(filename){
       crewPositions[crew] = null;
     }
   }
-
-  // Refresh Ship Systems panel with new deck ID
-  updateShipSystems();
 }
 
 // === Crew movement ===
-function crewMove(row, col, name){
-  // Select the correct room set based on currentDeck
-  let deckRooms;
-  if (currentDeck === "A") deckRooms = roomsA;
-  else if (currentDeck === "B") deckRooms = roomsB;
-  else if (currentDeck === "C") deckRooms = roomsC;
-  else if (currentDeck === "D") deckRooms = roomsD;
-  else deckRooms = {}; // fallback
-
+function crewMove(row, col, name) {
   let inRoom = false;
 
-  // Check if crew is inside a defined room
-  for (const room in deckRooms){
-    const {rows, cols, effect} = deckRooms[room];
-    if (row >= rows[0] && row <= rows[1] && col >= cols[0] && col <= cols[1]){
+  for(const room in rooms){
+    const {rows,cols,effect}=rooms[room];
+    if(row>=rows[0] && row<=rows[1] && col>=cols[0] && col<=cols[1]){
       document.getElementById("eventLog").innerText =
-        `${name} arrived at Row ${row+1}, Col ${col+1} (${room}) on Deck ${currentDeck}`;
-      if (effect) effect(name);
+        `${name} arrived at Row ${row+1}, Column ${col+1} (${room})`;
+      if(effect) effect(name);
       inRoom = true;
       break;
     }
   }
 
-  // Corridor movement (not inside a room)
-  if (!inRoom){
-    resources.oxygen--;
-    resources.power--;
-    crewStats[name].fatigue += 2;
-    crewStats[name].morale--;
+  if(!inRoom){
+    resources.oxygen = Math.max(0, resources.oxygen - 1);
+    resources.power = Math.max(0, resources.power - 1);
+    crewStats[name].fatigue = Math.min(100, crewStats[name].fatigue + 2);
+    crewStats[name].morale = Math.max(0, crewStats[name].morale - 1);
     document.getElementById("eventLog").innerText =
-      `${name} arrived at Row ${row+1}, Col ${col+1} (corridor) on Deck ${currentDeck}`;
+      `${name} arrived at Row ${row+1}, Column ${col+1}`;
   }
 
   updateResources();
   updateCrewStats();
-  updateShipSystems();
 }
-
 
 // === Map switching ===
 function setMap(filename) {
