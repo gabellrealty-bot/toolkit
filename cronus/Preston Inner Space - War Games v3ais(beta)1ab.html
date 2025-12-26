@@ -146,12 +146,13 @@ let shipSystems = {
 };
 
 function updateShipSystems(){
-  document.getElementById("shipSystems").innerHTML =
-    `<p>Reactor: ${shipSystems.reactor ? "Online" : "Offline"}</p>
-     <p>Life Support: ${shipSystems.lifeSupport ? "Online" : "Offline"}</p>
-     <p>Engines: ${shipSystems.engines ? "Online" : "Offline"}</p>
-     <p>Comms: ${shipSystems.comms ? "Online" : "Offline"}</p>`;
+  document.getElementById("shipSystems").innerText =
+    `Reactor: ${shipSystems.reactor ? "Online" : "Offline"} (Deck ${currentDeck})
+Life Support: ${shipSystems.lifeSupport ? "Online" : "Offline"} (Deck ${currentDeck})
+Engines: ${shipSystems.engines ? "Online" : "Offline"} (Deck ${currentDeck})
+Comms: ${shipSystems.comms ? "Online" : "Offline"} (Deck ${currentDeck})`;
 }
+
 
 function toggleAllSystems(){
   shipSystems.reactor = !shipSystems.reactor;
