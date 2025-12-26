@@ -105,7 +105,7 @@
 
   <!-- Map Area -->
   <div class="map-area">
-    <img id="mapImage" class="map-image" src="cronus-map.b.jpg" alt="Ship Map">
+    <img id="mapImage" class="map-image" src="cronus-map.jpeg" alt="Ship Map">
     <div class="grid-overlay" id="grid"></div>
   </div>
   
@@ -138,39 +138,96 @@
 </div>
 
 <script>
-// =======================================================
-// Starship Grid Simulation - Unified 4-Deck Script
-// Deck A (Cryo), Deck B (Main), Deck C (Cargo), Deck D (Vehicle)
-// =======================================================
+// === System Events ===
+function reactorFailure() {
+  resources.power = Math.max(0, resources.power - 20);
+  updateResources();
+  document.getElementById("eventLog").innerText = "⚠️ Reactor failure! Power drained by 20%.";
+  if (activeCrew) {
+    crewStats[activeCrew].morale = Math.max(0, crewStats[activeCrew].morale - 5);
+    updateCrewStats();
+  }
+}
 
-// ---------- Core state ----------
+function oxygenLeak() {
+  resources.oxygen = Math.max(0, resources.oxygen - 15);
+  updateResources();
+  document.getElementById("eventLog").innerText = "⚠️ Oxygen leak! Oxygen reduced by 15%.";
+  if (activeCrew) {
+    crewStats[activeCrew].health = Math.max(0, crewStats[activeCrew].health - 5);
+    updateCrewStats();
+  }
+}
 
-const resources = {
-  oxygen: 100,
-  power: 100,
-  fuel: 100
+function coolantSpike() {
+  resources.coolant = Math.max(0, resources.coolant - 10);
+  updateResources();
+  document.getElementById("eventLog").innerText = "⚠️ Coolant spike! Coolant reduced by 10%.";
+}
+
+function engineStress() {
+  resources.fuel = Math.max(0, resources.fuel - 10);
+  updateResources();
+  document.getElementById("eventLog").innerText = "⚠️ Engine stress! Fuel reduced by 10%.";
+}
+
+// === Crew stats ===
+const crewStats = {
+  "Rosa":      {health:100, fatigue:0, morale:100, role:"crew"},
+  "Bessy":     {health:100, fatigue:0, morale:100, role:"crew"},
+  "Maria":     {health:100, fatigue:0, morale:100, role:"crew"},
+  "Neon":      {health:100, fatigue:0, morale:100, role:"crew"},
+  "Sieta":     {health:100, fatigue:0, morale:100, role:"captain"},
+  "Bessy Jr":  {health:100, fatigue:0, morale:100, role:"npc"},
+  "Joshua":    {health:100, fatigue:0, morale:100, role:"npc"},
+  "Isabella":  {health:100, fatigue:0, morale:100, role:"npc"},
+  "Bei":       {health:100, fatigue:0, morale:100, role:"crew"},
+  "Lucina":    {health:100, fatigue:0, morale:100, role:"crew"},
+  "Helena":    {health:100, fatigue:0, morale:100, role:"crew"}
 };
 
-const crewStats = {
-  "Sieta":  { health: 100, fatigue: 0,  morale: 100, role: "captain" },
-  "Rosa":   { health: 100, fatigue: 10, morale: 95,  role: "advisor" },
-  "Lucina": { health: 100, fatigue: 5,  morale: 90,  role: "pilot" },
-  "Neon":   { health: 100, fatigue: 0,  morale: 85,  role: "engineer" }
+const crewColors = {
+  "Rosa":"pink","Bessy":"orange","Maria":"purple","Neon":"lime",
+  "Sieta":"cyan","Bessy Jr":"yellow","Joshua":"blue",
+  "Isabella":"red","Bei":"magenta","Lucina":"teal","Helena":"white"
 };
 
 const crewTokens = {};
 const crewPositions = {};
+let activeCrew = null;
 
-let currentDeck = "B"; // default
-let activeCrew = "Sieta";
+// === Resources ===
+let resources = { power:100, oxygen:100, fuel:100, coolant:100 };
 
-const GRID_ROWS = 30;
-const GRID_COLS = 35;
+function updateResources(){
+  document.getElementById("power").innerText   = `Power: ${resources.power}%`;
+  document.getElementById("oxygen").innerText  = `Oxygen: ${resources.oxygen}%`;
+  document.getElementById("fuel").innerText    = `Fuel: ${resources.fuel}%`;
+  document.getElementById("coolant").innerText = `Coolant: ${resources.coolant}%`;
+}
+
+function updateCrewStats(){
+  const statsDiv = document.getElementById("crewStats");
+  statsDiv.innerHTML = "";
+  if(activeCrew){
+    const s = crewStats[activeCrew];
+    statsDiv.innerHTML =
+      `<p><strong>${activeCrew}</strong> (Role: ${s.role})<br>` +
+      `Health: ${s.health}% | Fatigue: ${s.fatigue}% | Morale: ${s.morale}%</p>`;
+  }
+}
+
+function setActiveCrew(name){
+  activeCrew = name;
+  document.getElementById("eventLog").innerText = `${name} selected`;
+  updateCrewStats();
+}
 
 // =======================================================
-// ROOMS — DECK A (Cryo Deck)
+// ROOM MAPS PER DECK
 // =======================================================
 
+// === Rooms object (Deck A, Cryo Deck) ===
 const roomsA = {
   "Stairwell - Upper/Lower Decks": { rows:[19,23], cols:[20,24], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
   "Junction A-1": { rows:[19,23], cols:[25,29], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
@@ -187,49 +244,97 @@ const roomsA = {
   "Quantum Log": { rows:[25,29], cols:[16,20], effect:(c)=>{ crewStats[c].morale-=30; crewStats[c].fatigue+=20; updateCrewStats(); }}
 };
 
-// =======================================================
-// ROOMS — DECK B (Main Deck)
-// =======================================================
-
+// === Rooms object (Deck B, Main Deck) ===
+// this is your original `rooms` object, renamed to roomsB
 const roomsB = {
-  "Reactor Core": { rows:[23,27], cols:[15,19], effect:(c)=>{ reactorFailure(); crewStats[c].morale-=30; crewStats[c].fatigue+=20; updateCrewStats(); }},
-  "Mess Hall": { rows:[19,23], cols:[23,27], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-20); crewStats[c].morale+=20; updateCrewStats(); }},
-  "Corporate Suite w/EEV": { rows:[13,17], cols:[23,27], effect:(c)=>{ crewStats[c].health+=10; crewStats[c].morale+=15; updateCrewStats(); }},
-  "Captain's Quarters": { rows:[15,19], cols:[17,21], effect:(c)=>{ crewStats[c].health+=20; crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-25); crewStats[c].morale+=25; updateCrewStats(); }},
-  "Med Lab": { rows:[17,21], cols:[11,15], effect:(c)=>{ crewStats[c].health+=25; crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
-  "Living Area 2": { rows:[21,25], cols:[17,21], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-15); crewStats[c].morale+=15; updateCrewStats(); }},
-  "Living Area 3": { rows:[13,17], cols:[17,21], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-15); crewStats[c].morale+=15; updateCrewStats(); }},
-  "Mech B": { rows:[25,29], cols:[11,15], effect:(c)=>{ crewStats[c].fatigue+=15; crewStats[c].morale-=10; updateCrewStats(); }}
+  "Bridge": { rows:[19,23], cols:[34,38], effect:(c)=>{ crewStats[c].morale=Math.min(100,crewStats[c].morale+2); updateCrewStats(); }},
+  "Med Lab": { rows:[15,19], cols:[12,16], effect:(c)=>{ crewStats[c].health=Math.min(100,crewStats[c].health+20); crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
+  "Reactor Core": { rows:[19,23], cols:[7,11], effect:(c)=>{ reactorFailure(); crewStats[c].morale=Math.max(0,crewStats[c].morale-5); updateCrewStats(); }},
+  "Science Module": { rows:[19,23], cols:[3,7], effect:(c)=>{ crewStats[c].morale=Math.min(100,crewStats[c].morale+1); updateCrewStats(); }},
+  "Mess Hall": { rows:[23,27], cols:[19,23], effect:(c)=>{ crewStats[c].health=Math.min(100,crewStats[c].health+10); crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-15); crewStats[c].morale=Math.min(100,crewStats[c].morale+15); updateCrewStats(); }},
+  "Pilot Station 1": { rows:[16,20], cols:[32,36], effect:(c)=>{ crewStats[c].fatigue+=2; crewStats[c].morale+=1; updateCrewStats(); }},
+  "Pilot Station 2": { rows:[21,25], cols:[32,36], effect:(c)=>{ crewStats[c].fatigue+=2; crewStats[c].morale+=1; updateCrewStats(); }},
+  "Life Support": { rows:[21,25], cols:[30,34], effect:(c)=>{ crewStats[c].health+=5; crewStats[c].morale+=2; updateCrewStats(); }},
+  "Sensor Station": { rows:[16,20], cols:[30,34], effect:(c)=>{ crewStats[c].fatigue+=5; crewStats[c].morale-=2; updateCrewStats(); }},
+  "Holo Display Table": { rows:[19,23], cols:[31,35], effect:(c)=>{ crewStats[c].morale+=2; updateCrewStats(); }},
+  "Comm Station": { rows:[19,23], cols:[29,33], effect:(c)=>{ crewStats[c].morale+=3; updateCrewStats(); }},
+  "Junction B-1": { rows:[19,23], cols:[25,29], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Vestible 1 - Armory": { rows:[15,19], cols:[25,29], effect:(c)=>{ crewStats[c].morale-=5; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Vestible 2 - EVA Suits": { rows:[23,27], cols:[25,29], effect:(c)=>{ crewStats[c].morale+=2; crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-2); updateCrewStats(); }},
+  "Storage Closet": { rows:[15,19], cols:[22,26], effect:(c)=>{ crewStats[c].fatigue+=3; updateCrewStats(); }},
+  "Stairwell - Upper/Lower Decks": { rows:[19,23], cols:[20,24], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Air Scrubbers Shaft": { rows:[19,23], cols:[18,22], effect:(c)=>{ crewStats[c].health-=5; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Corporate Suite w/EEV": { rows:[15,19], cols:[19,23], effect:(c)=>{ crewStats[c].health=Math.min(100,crewStats[c].health+15); crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-20); crewStats[c].morale=Math.min(100,crewStats[c].morale+20); updateCrewStats(); }},
+  "Mech A": { rows:[25,29], cols:[16,20], effect:(c)=>{ crewStats[c].fatigue+=5; crewStats[c].morale-=2; updateCrewStats(); }},
+  "Living Area 1": { rows:[23,27], cols:[15,19], effect:(c)=>{ 
+      document.getElementById("eventLog").innerText += " — Rest and comfort.";
+      crewStats[c].health = Math.min(100, crewStats[c].health+10);
+      crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-20);
+      crewStats[c].morale = Math.min(100, crewStats[c].morale+20);
+      updateCrewStats();
+  }},
+  "Living Area 2": { rows:[19,23], cols:[15,19], effect:(c)=>{ 
+      document.getElementById("eventLog").innerText += " — Rest and comfort.";
+      crewStats[c].health = Math.min(100, crewStats[c].health+10);
+      crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-20);
+      crewStats[c].morale = Math.min(100, crewStats[c].morale+20);
+      updateCrewStats();
+  }},
+  "Living Area 3": { rows:[15,19], cols:[15,19], effect:(c)=>{ 
+      document.getElementById("eventLog").innerText += " — Rest and comfort.";
+      crewStats[c].health = Math.min(100, crewStats[c].health+10);
+      crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-20);
+      crewStats[c].morale = Math.min(100, crewStats[c].morale+20);
+      updateCrewStats();
+  }},
+  "Captain Quarters": { rows:[15,19], cols:[17,21], effect:(c)=>{ 
+      document.getElementById("eventLog").innerText += " — Private sanctuary.";
+      crewStats[c].health = Math.min(100, crewStats[c].health+20);
+      crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-25);
+      crewStats[c].morale = Math.min(100, crewStats[c].morale+25);
+      updateCrewStats();
+  }},
+  "Mech B": { rows:[12,16], cols:[16,20], effect:(c)=>{ 
+      document.getElementById("eventLog").innerText += " — Mechanical strain.";
+      crewStats[c].fatigue+=5;
+      crewStats[c].morale-=2;
+      updateCrewStats();
+  }},
+  "Access Terminal": { rows:[21,25], cols:[14,18], effect:(c)=>{ crewStats[c].morale+=3; crewStats[c].fatigue+=2; updateCrewStats(); }},
+  "Medpods": { rows:[15,19], cols:[10,14], effect:(c)=>{ 
+      document.getElementById("eventLog").innerText += " — Intensive healing.";
+      crewStats[c].health = 100;
+      crewStats[c].fatigue = Math.max(0, crewStats[c].fatigue-30);
+      crewStats[c].morale = Math.min(100, crewStats[c].morale+10);
+      updateCrewStats();
+  }},
+  "Sci Lab 2": { rows:[21,25], cols:[12,16], effect:(c)=>{ crewStats[c].morale+=2; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Sci Lab 1 w/storage": { rows:[23,27], cols:[10,14], effect:(c)=>{ crewStats[c].morale+=2; crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Junction B2": { rows:[19,23], cols:[10,14], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Command Station": { rows:[19,23], cols:[36,40], effect:(c)=>{ crewStats[c].fatigue+=10; crewStats[c].morale-=5; updateCrewStats(); }}
 };
 
-// =======================================================
-// ROOMS — DECK C (Cargo Deck)
-// =======================================================
-
+// === Rooms object (Deck C, Cargo Deck) ===
 const roomsC = {
   "Junction C-1": { rows:[19,23], cols:[25,29], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
-  "Stairwell - Upper/Lower Decks": { rows:[19,23], cols:[20,24], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
   "Cargo Bay 1": { rows:[14,18], cols:[19,23], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); crewStats[c].morale+=10; updateCrewStats(); }},
   "Cargo Bay 2": { rows:[23,27], cols:[19,23], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-15); crewStats[c].morale+=15; updateCrewStats(); }},
   "Catwalk 1 - Open to Deck D": { rows:[21,25], cols:[17,21], effect:(c)=>{ crewStats[c].morale+=5; updateCrewStats(); }},
   "Catwalk 2 - Open to Deck D": { rows:[17,21], cols:[17,21], effect:(c)=>{ crewStats[c].morale+=5; updateCrewStats(); }},
-  "Cargo Office": { rows:[13,17], cols:[15,19], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
   "Catwalk 3 - Open Center to Deck D": { rows:[19,23], cols:[13,17], effect:(c)=>{ crewStats[c].morale+=5; updateCrewStats(); }},
-  "Balcony & Asset Log": { rows:[18,22], cols:[11,15], effect:(c)=>{ crewStats[c].morale+=10; updateCrewStats(); }},
+  "Cargo Office": { rows:[13,17], cols:[15,19], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Balcony & Asset Log": { rows:[19,23], cols:[11,15], effect:(c)=>{ crewStats[c].morale+=10; updateCrewStats(); }},
   "Junction C-2": { rows:[19,23], cols:[7,11], effect:(c)=>{ reactorFailure(); crewStats[c].morale-=10; updateCrewStats(); }},
-  "Coolant Tank 2": { rows:[23,27], cols:[9,13], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
-  "Maintenance 2": { rows:[23,27], cols:[11,15], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
-  "Maintenance 1": { rows:[15,19], cols:[11,15], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
   "Coolant Tank 1": { rows:[14,18], cols:[9,13], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
+  "Coolant Tank 2": { rows:[23,27], cols:[9,13], effect:(c)=>{ crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
+  "Maintenance 1": { rows:[15,19], cols:[11,15], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
+  "Maintenance 2": { rows:[23,27], cols:[11,15], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
   "Reactor Relay Control": { rows:[23,27], cols:[7,11], effect:(c)=>{ crewStats[c].morale-=20; crewStats[c].fatigue+=10; updateCrewStats(); }},
   "Storage Closet 1": { rows:[14,18], cols:[23,27], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }},
   "Storage Closet 2": { rows:[23,27], cols:[23,27], effect:(c)=>{ crewStats[c].fatigue+=5; updateCrewStats(); }}
 };
 
-// =======================================================
-// ROOMS — DECK D (Vehicle Deck)
-// =======================================================
-
+// === Rooms object (Deck D, Vehicle Deck) ===
 const roomsD = {
   "Vehicle Bay": { rows:[19,23], cols:[17,21], effect:(c)=>{ crewStats[c].morale+=5; crewStats[c].fatigue=Math.max(0,crewStats[c].fatigue-10); updateCrewStats(); }},
   "Equipment Shed": { rows:[15,19], cols:[7,11], effect:(c)=>{ crewStats[c].fatigue+=10; crewStats[c].morale-=5; updateCrewStats(); }},
@@ -238,90 +343,34 @@ const roomsD = {
 };
 
 // =======================================================
-// CORE FUNCTIONS
+// DECK STATE + UNIFIED MOVEMENT
 // =======================================================
 
-function reactorFailure() {
-  resources.power = Math.max(0, resources.power - 20);
-  updateResources();
-  const log = document.getElementById("eventLog");
-  if (log) log.innerText = `⚠️ Reactor failure! Power drained by 20%.`;
-}
-
-function updateResources() {
-  const el = document.getElementById("resources");
-  if (!el) return;
-  el.innerText = `O2: ${resources.oxygen}% | Power: ${resources.power}% | Fuel: ${resources.fuel}%`;
-}
-
-function updateCrewStats() {
-  const el = document.getElementById("crewStats");
-  if (!el) return;
-  let text = "";
-  for (const name in crewStats) {
-    const s = crewStats[name];
-    text += `${name} (Role: ${s.role}) - Health: ${s.health}% | Fatigue: ${s.fatigue}% | Morale: ${s.morale}%\n`;
-  }
-  el.innerText = text.trim();
-}
-
-// =======================================================
-// DECK SWITCHING (ALL CREW MOVE TOGETHER)
-// =======================================================
-
-function setMap(filename, deck) {
-  const img = document.getElementById("mapImage");
-  if (img) img.src = filename;
-
-  currentDeck = deck;
-
-  resources.fuel = Math.max(0, resources.fuel - 5);
-  updateResources();
-
-  const log = document.getElementById("eventLog");
-  if (log) log.innerText = `Switched to ${filename} (Deck ${deck})`;
-
-  for (const crew in crewTokens) {
-    if (crewTokens[crew]) {
-      crewTokens[crew].remove();
-      crewTokens[crew] = null;
-      crewPositions[crew] = null;
-    }
-  }
-}
-
-// =======================================================
-// CREW MOVEMENT + ROOM LOGIC
-// =======================================================
+let currentDeck = "B"; // default starting deck
 
 function crewMove(row, col, name) {
-  let deckRooms =
-    currentDeck === "A" ? roomsA :
-    currentDeck === "B" ? roomsB :
-    currentDeck === "C" ? roomsC :
-    roomsD;
+  // pick the right rooms object based on currentDeck
+  let deckRooms;
+  if (currentDeck === "A")      deckRooms = roomsA;
+  else if (currentDeck === "B") deckRooms = roomsB;
+  else if (currentDeck === "C") deckRooms = roomsC;
+  else if (currentDeck === "D") deckRooms = roomsD;
+  else {
+    console.error("Deck not defined:", currentDeck);
+    return;
+  }
 
   let inRoom = false;
-  let roomName = null;
 
   for (const room in deckRooms) {
-    const { rows, cols, effect } = deckRooms[room];
+    const {rows, cols, effect} = deckRooms[room];
     if (row >= rows[0] && row <= rows[1] &&
         col >= cols[0] && col <= cols[1]) {
 
-      roomName = room;
-
-      const log = document.getElementById("eventLog");
-      if (log) {
-        log.innerText =
-          `${name} arrived at Row ${row+1}, Column ${col+1} (${room})\n` +
-          `Crew Stats\n` +
-          `${name} (Role: ${crewStats[name].role})\n` +
-          `Health: ${crewStats[name].health}% | Fatigue: ${crewStats[name].fatigue}% | Morale: ${crewStats[name].morale}%`;
-      }
+      document.getElementById("eventLog").innerText =
+        `${name} arrived at Row ${row+1}, Column ${col+1} (${room})`;
 
       if (effect) effect(name);
-
       inRoom = true;
       break;
     }
@@ -329,18 +378,12 @@ function crewMove(row, col, name) {
 
   if (!inRoom) {
     resources.oxygen = Math.max(0, resources.oxygen - 1);
-    resources.power = Math.max(0, resources.power - 1);
+    resources.power  = Math.max(0, resources.power  - 1);
     crewStats[name].fatigue = Math.min(100, crewStats[name].fatigue + 2);
-    crewStats[name].morale = Math.max(0, crewStats[name].morale - 1);
+    crewStats[name].morale  = Math.max(0,  crewStats[name].morale  - 1);
 
-    const log = document.getElementById("eventLog");
-    if (log) {
-      log.innerText =
-        `${name} arrived at Row ${row+1}, Column ${col+1}\n` +
-        `Crew Stats\n` +
-        `${name} (Role: ${crewStats[name].role})\n` +
-        `Health: ${crewStats[name].health}% | Fatigue: ${crewStats[name].fatigue}% | Morale: ${crewStats[name].morale}%`;
-    }
+    document.getElementById("eventLog").innerText =
+      `${name} arrived at Row ${row+1}, Column ${col+1}`;
   }
 
   updateResources();
@@ -348,86 +391,22 @@ function crewMove(row, col, name) {
 }
 
 // =======================================================
-// MAP CLICK HANDLING + TOKEN PLACEMENT
+// MAP SWITCHING (BUTTONS STILL CALL setMap(filename))
 // =======================================================
 
-function initMapClick() {
-  const img = document.getElementById("mapImage");
-  if (!img) return;
-
-  img.addEventListener("click", function(event) {
-    const rect = img.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    const col = Math.floor((x / rect.width) * GRID_COLS);
-    const row = Math.floor((y / rect.height) * GRID_ROWS);
-
-    placeCrewToken(activeCrew, row, col);
-    crewMove(row, col, activeCrew);
-  });
-}
-
-function placeCrewToken(name, row, col) {
-  const container = document.getElementById("mapContainer") || document.body;
-  const img = document.getElementById("mapImage");
-  if (!img) return;
-
-  let token = crewTokens[name];
-  if (!token) {
-    token = document.createElement("div");
-    token.className = "crew-token";
-    token.innerText = name[0];
-    token.style.position = "absolute";
-    token.style.width = "16px";
-    token.style.height = "16px";
-    token.style.borderRadius = "50%";
-    token.style.background = "rgba(0, 255, 255, 0.7)";
-    token.style.color = "#000";
-    token.style.fontSize = "12px";
-    token.style.display = "flex";
-    token.style.alignItems = "center";
-    token.style.justifyContent = "center";
-    token.style.pointerEvents = "none";
-    container.appendChild(token);
-    crewTokens[name] = token;
+function setMap(filename) {
+  // infer deck from filename: cronus-map.a.jpg / b / c / d
+  let deck = "B";
+  const match = filename.match(/cronus-map\.([abcd])/i);
+  if (match) {
+    deck = match[1].toUpperCase();
   }
 
-  const rect = img.getBoundingClientRect();
-  const cellWidth = rect.width / GRID_COLS;
-  const cellHeight = rect.height / GRID_ROWS;
+  currentDeck = deck;
 
-  token.style.left = (rect.left + col * cellWidth + cellWidth / 2 - 8) + "px";
-  token.style.top = (rect.top + row * cellHeight + cellHeight / 2 - 8) + "px";
+  document.getElementById("mapImage").src = filename;
 
-  crewPositions[name] = { row, col };
-}
-
-// =======================================================
-// ACTIVE CREW SELECTION
-// =======================================================
-
-function setActiveCrew(name) {
-  if (!crewStats[name]) return;
-  activeCrew = name;
-
-  const log = document.getElementById("eventLog");
-  if (log) log.innerText = `Active crew: ${name} (Deck ${currentDeck})`;
-}
-
-// =======================================================
-// INITIALIZATION
-// =======================================================
-
-window.addEventListener("load", function() {
-  updateResources();
-  updateCrewStats();
-  initMapClick();
-  setMap("deckB_main.png", "B");
-});
-</script>
-
-
+  resources.fuel = Math.max
 
 </body>
 </html>
