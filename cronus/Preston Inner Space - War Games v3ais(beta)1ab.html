@@ -423,12 +423,27 @@ function crewMove(row, col, name) {
   updateResources();
   updateCrewStats();
 }
-function setMap(filename, deck) {
+function setMap(filename){
+  // Update the map image
   document.getElementById("mapImage").src = filename;
-  currentDeck = deck; // "A", "B", "C", or "D"
+
+  // Extract deck ID from filename (cronus-map.a.jpg, cronus-map.b.jpg, etc.)
+  const match = filename.match(/cronus-map\.(a|b|c|d)/i);
+  if (match) {
+    currentDeck = match[1].toUpperCase(); // A, B, C, or D
+  } else {
+    currentDeck = "?"; // fallback if filename doesn't match
+  }
+
+  // Fuel cost for switching decks
   resources.fuel = Math.max(0, resources.fuel - 5);
   updateResources();
-  document.getElementById("eventLog").innerText = `Switched to ${filename} (Deck ${deck})`;
+
+  // Log the deck switch
+  document.getElementById("eventLog").innerText =
+    `Switched to ${filename} (Deck ${currentDeck})`;
+
+  // Clear crew tokens when changing decks
   for (const crew in crewTokens) {
     if (crewTokens[crew]) {
       crewTokens[crew].remove();
@@ -436,35 +451,50 @@ function setMap(filename, deck) {
       crewPositions[crew] = null;
     }
   }
+
+  // Refresh Ship Systems panel with new deck ID
+  updateShipSystems();
 }
 
 // === Crew movement ===
-function crewMove(row, col, name) {
+function crewMove(row, col, name){
+  // Select the correct room set based on currentDeck
+  let deckRooms;
+  if (currentDeck === "A") deckRooms = roomsA;
+  else if (currentDeck === "B") deckRooms = roomsB;
+  else if (currentDeck === "C") deckRooms = roomsC;
+  else if (currentDeck === "D") deckRooms = roomsD;
+  else deckRooms = {}; // fallback
+
   let inRoom = false;
 
-  for(const room in rooms){
-    const {rows,cols,effect}=rooms[room];
-    if(row>=rows[0] && row<=rows[1] && col>=cols[0] && col<=cols[1]){
+  // Check if crew is inside a defined room
+  for (const room in deckRooms){
+    const {rows, cols, effect} = deckRooms[room];
+    if (row >= rows[0] && row <= rows[1] && col >= cols[0] && col <= cols[1]){
       document.getElementById("eventLog").innerText =
-        `${name} arrived at Row ${row+1}, Column ${col+1} (${room})`;
-      if(effect) effect(name);
+        `${name} arrived at Row ${row+1}, Col ${col+1} (${room}) on Deck ${currentDeck}`;
+      if (effect) effect(name);
       inRoom = true;
       break;
     }
   }
 
-  if(!inRoom){
-    resources.oxygen = Math.max(0, resources.oxygen - 1);
-    resources.power = Math.max(0, resources.power - 1);
-    crewStats[name].fatigue = Math.min(100, crewStats[name].fatigue + 2);
-    crewStats[name].morale = Math.max(0, crewStats[name].morale - 1);
+  // Corridor movement (not inside a room)
+  if (!inRoom){
+    resources.oxygen--;
+    resources.power--;
+    crewStats[name].fatigue += 2;
+    crewStats[name].morale--;
     document.getElementById("eventLog").innerText =
-      `${name} arrived at Row ${row+1}, Column ${col+1}`;
+      `${name} arrived at Row ${row+1}, Col ${col+1} (corridor) on Deck ${currentDeck}`;
   }
 
   updateResources();
   updateCrewStats();
+  updateShipSystems();
 }
+
 
 // === Map switching ===
 function setMap(filename) {
