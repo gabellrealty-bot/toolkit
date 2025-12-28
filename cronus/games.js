@@ -31,55 +31,7 @@
     function snapToGrid(x,y){return{ x:Math.floor(x/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2, y:Math.floor(y/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2};}
     function distance(a,b){const dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy);}
 
-    
-	// ========================= TOWER CLASS =========================
-class Tower {
-  constructor(x, y, type) {
-    this.x = x;
-    this.y = y;
-    this.type = type;
-    this.range = 100;
-    this.fireRate = 1;
-    this.cooldown = 0;
-  }
-
-  update(dt) {
-    this.cooldown -= dt;
-    if (this.cooldown <= 0) {
-      const target = gameState.enemies.find(e => distance(this, e) < this.range);
-      if (target) {
-        gameState.projectiles.push(new Projectile(this.x, this.y, target));
-        this.cooldown = 1 / this.fireRate;
-      }
-    }
-  }
-
-  draw(ctx) {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
-
-    // Color by tower type
-    switch (this.type) {
-      case 'Lucina': ctx.fillStyle = '#66ccff'; break;   // light blue
-      case 'Neon': ctx.fillStyle = '#ff33cc'; break;     // magenta
-      case 'Helena': ctx.fillStyle = '#ffff66'; break;   // yellow
-      case 'Rosa': ctx.fillStyle = '#ff6666'; break;     // red
-      case 'Maria': ctx.fillStyle = '#66ff66'; break;    // green
-      case 'Sieta': ctx.fillStyle = '#9933ff'; break;    // purple
-      case 'Bessy': ctx.fillStyle = '#ff9933'; break;    // orange
-      default: ctx.fillStyle = '#cccccc';                // grey fallback
-    }
-
-    ctx.fill();
-    ctx.strokeStyle = '#000';
-    ctx.stroke();
-  }
-}
-
-	
-	
-	
-	// ========================= CLASSES =========================
+    // ========================= CLASSES =========================
     class Enemy {
       constructor(path, speed, maxHp, type = 'Entropy Fragment') {
         this.path = path; this.speed = speed; this.maxHp = maxHp;
@@ -285,30 +237,6 @@ class Tower {
         log("Bessy deploys: Fabrication drone assists.");
       }
     }
-
-// ========================= INPUT HANDLERS =========================
-bessyAbilityBtn.addEventListener('click', () => {
-  canvas.addEventListener('click', function handler(e) {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Spawn Bessy tower at click
-    const bessy = new Tower(x, y, 'Bessy');
-    gameState.towers.push(bessy);
-    log('Bessy surges: Fabrication node deployed.');
-
-    // Ability effect: damage all enemies in range
-    gameState.enemies.forEach(enemy => {
-      if (distance(bessy, enemy) < bessy.range) {
-        enemy.hp -= 30; // fabrication surge damage
-      }
-    });
-
-    // Remove this click handler after one use
-    canvas.removeEventListener('click', handler);
-  });
-});
 
     // ========================= SPECIAL ABILITIES =========================
     document.getElementById("sietaAbilityBtn").addEventListener("click",()=>{
