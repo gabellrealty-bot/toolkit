@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>East Asia Tech Circuit Tokyo — Full Race + Map</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+
+<style>
+  html,body{
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    background:#000;
+    font-family:system-ui,Segoe UI,Roboto,Arial;
+    color:#dff;
+  }
+
+  /* MAP LAYER */
+  #mapLayer{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#000;
+    z-index:1;
+  }
+  #mapLayer img{
+    width:680px;   /* scaled version of 907 x 940 */
+    height:705px;
+    object-fit:contain;
+    display:block;
+  }
+
+  /* CANVAS */
+  #raceLayer{
+    position:absolute;
+    inset:0;
+    z-index:2;
+    pointer-events:none;
+  }
+
+  /* UI PANEL */
+  #panel{
+    position:absolute;
+    right:12px;
+    top:12px;
+    z-index:10;
+    width:280px;
+    padding:10px;
+    border-radius:10px;
+    background:rgba(0,0,0,0.72);
+    border:1px solid rgba(0,255,255,0.18);
+  }
+  #panel h3{
+    margin:0 0 6px 0;
+    color:#0ff;
+  }
+  #panel label{
+    display:block;
+    margin-top:6px;
+    font-size:12px;
+    color:#9fd;
+  }
+  #panel input,#panel button{
+    width:100%;
+    margin-top:4px;
+    padding:7px 8px;
+    border-radius:7px;
+    border:1px solid rgba(255,255,255,0.08);
+    background:#020916;
+    color:#0ff;
+  }
+  #panel button{
+    cursor:pointer;
+    background:linear-gradient(90deg,#00f6ff,#7b00ff);
+    color:#001;
+    font-weight:700;
+  }
+
+  /* POSITIONS / STATUS */
+  #positions{
+    margin-top:6px;
+    font-size:12px;
+  }
+  .dot{
+    display:inline-block;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    margin-right:6px;
+  }
+  .red{background:#ff4d4d}
+  .blue{background:#4dd0ff}
+  .green{background:#7dff7d}
+  .yellow{background:#ffd24d}
+
+  #raceInfo{
+    margin-top:6px;
+    font-size:12px;
+    color:#bdf;
+  }
+
+  /* LOG */
+  #log{
+    position:absolute;
+    left:12px;
+    bottom:12px;
+    z-index:10;
+    width:46%;
+    max-width:720px;
+    height:190px;
+    padding:8px 10px;
+    border-radius:10px;
+    background:rgba(0,0,0,0.72);
+    border:1px solid rgba(0,255,255,0.12);
+    font-size:12px;
+    overflow:auto;
+  }
+
+  /* WINNER */
+  #winnerBanner{
+    position:absolute;
+    left:50%;
+    top:16%;
+    transform:translateX(-50%);
+    z-index:20;
+    padding:16px 24px;
+    border-radius:10px;
+    background:rgba(0,0,0,0.85);
+    border:1px solid rgba(255,255,255,0.12);
+    display:none;
+    text-align:center;
+  }
+
+  /* START OVERLAY */
+  #startOverlay{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    background:rgba(0,0,0,0.85);
+  }
+  #startCard{
+    width:520px;
+    max-width:92%;
+    padding:24px;
+    border-radius:14px;
+    background:#0a1626;
+    border:1px solid rgba(0,255,255,0.18);
+    text-align:center;
+  }
+  #startCard h1{
+    margin:0 0 6px 0;
+    font-size:32px;
+    background:linear-gradient(90deg,#00f6ff,#ff00d4);
+    -webkit-background-clip:text;
+    color:transparent;
+    font-weight:900;
+  }
+  #startName{
+    width:100%;
+    margin-top:10px;
+    padding:8px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.1);
+    background:#020916;
+    color:#0ff;
+  }
+  #startButton{
+    margin-top:14px;
+    padding:9px 18px;
+    width:100%;
+    border-radius:999px;
+    border:none;
+    background:linear-gradient(90deg,#00f6ff,#7b00ff);
+    color:#001;
+    font-weight:800;
+    font-size:14px;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- MAP BACKGROUND -->
+<div id="mapLayer">
+  <img src="2pvJj6g.jpg" alt="Track Map">
+</div>
+
+<!-- CANVAS FOR CARS + CHECKPOINT DOTS -->
+<canvas id="raceLayer"></canvas>
+
+<!-- UI PANEL -->
+<div id="panel">
+  <h3>Race Control</h3>
+
+  <label>Player name</label>
+  <input id="playerNameInput" placeholder="Enter name">
+
+  <label>Checkpoints (around track)</label>
+  <input id="cpInput" type="number" min="4" max="48" value="18">
+
+  <label>Laps</label>
+  <input id="lapInput" type="number" min="1" max="10" value="3">
+
+  <button id="startSimBtn">Start Race</button>
+  <button id="resetSimBtn">Reset</button>
+
+  <div id="raceInfo">
+    <div>Race time: <span id="raceTime">00.0s</span></div>
+  </div>
+
+  <div id="positions">
+    <div><span class="dot red"></span>Red: <span id="posRed">—</span></div>
+    <div><span class="dot blue"></span>Blue: <span id="posBlue">—</span></div>
+    <div><span class="dot green"></span>Green: <span id="posGreen">—</span></div>
+    <div><span class="dot yellow"></span>Yellow: <span id="posYellow">—</span></div>
+  </div>
+</div>
+
+<!-- RACE LOG -->
+<div id="log"></div>
+
+<!-- WINNER BANNER -->
+<div id="winnerBanner">
+  <h2 id="winnerText"></h2>
+  <p id="winnerDetail"></p>
+</div>
+
+<!-- START OVERLAY -->
+<div id="startOverlay">
+  <div id="startCard">
+    <h1>EAST HALL CIRCUIT</h1>
+    <p>The circuit is projected onto the Ariake tech map. Watch three full laps unfold automatically.</p>
+    <p><small>Map: <code>2pvJj6g.jpg</code> · Track: 20‑point spline · Laps: configurable</small></p>
+
+    <input id="startName" placeholder="Enter player name (optional)" maxlength="32">
+
+    <button id="startButton">START SIMULATION</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   FULL RACE + MAP
+   - Map is <img> background
+   - Canvas draws cars + checkpoint dots (track line hidden)
+   - 3+ automated laps with logs, start/stop time, winner
+   ============================================================ */
+
+/* ---------------- TRACK DATA ---------------- */
+const RAW_POINTS = [
+  {"x":143.84880591031444,"z":-36.24420136303764},
+  {"x":137.7130748525285,"z":-144.64211671725562},
+  {"x":107.03441956359889,"z":-156.2318309375179},
+  {"x":104.30742798236071,"z":-201.90893992325758},
+  {"x":164.9829906649104,"z":-229.17885573563947},
+  {"x":102.26218429643207,"z":-242.13206574652088},
+  {"x":85.21848691369338,"z":-227.81535994502036},
+  {"x":77.03751216997883,"z":-255.08527575740226},
+  {"x":42.95011740450147,"z":-251.67653628085452},
+  {"x":77.71926006528837,"z":-71.01334402382454},
+  {"x":-129.53210010881395,"z":81.69818452551402},
+  {"x":-147.25754538686218,"z":74.88070557241855},
+  {"x":-174.52746119924404,"z":102.83236928010997},
+  {"x":-141.8035622243858,"z":175.77939407823152},
+  {"x":-67.49304163564517,"z":245.31767939980531},
+  {"x":-92.03596586678886,"z":318.26470419792685},
+  {"x":108.39791535421799,"z":167.59841933451696},
+  {"x":115.21539430731346,"z":93.28789874577632},
+  {"x":143.1670580150049,"z":100.78712559418133},
+  {"x":145.8940495962431,"z":-1.4750587022507347}
+];
+
+/* ---------------- CANVAS SETUP ---------------- */
+const canvas = document.getElementById("raceLayer");
+const ctx = canvas.getContext("2d");
+
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+/* ---------------- WORLD → SCREEN MAPPING ---------------- */
+function computeBounds(points){
+  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+  points.forEach(p=>{
+    minX=Math.min(minX,p.x);
+    maxX=Math.max(maxX,p.x);
+    minZ=Math.min(minZ,p.z);
+    maxZ=Math.max(maxZ,p.z);
+  });
+  return {minX,maxX,minZ,maxZ};
+}
+
+const bounds = computeBounds(RAW_POINTS);
+
+function worldToScreen(p){
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const worldW = bounds.maxX - bounds.minX;
+  const worldH = bounds.maxZ - bounds.minZ;
+
+  const scale = Math.min(W/worldW, H/worldH) * 0.9;
+
+  const cx = W/2;
+  const cy = H/2;
+
+  const worldCenterX = (bounds.minX + bounds.maxX)/2;
+  const worldCenterZ = (bounds.minZ + bounds.maxZ)/2;
+
+  return {
+    x: cx + (p.x - worldCenterX)*scale,
+    y: cy + (p.z - worldCenterZ)*scale
+  };
+}
+
+/* ---------------- CATMULL-ROM ---------------- */
+function catmullRom(p0,p1,p2,p3,t){
+  const t2=t*t, t3=t2*t;
+  return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3);
+}
+
+function sampleCurve(points,u){
+  const n = points.length;
+  const t = u*n;
+  const i = Math.floor(t)%n;
+  const local = t - Math.floor(t);
+
+  const p0 = points[(i-1+n)%n];
+  const p1 = points[i];
+  const p2 = points[(i+1)%n];
+  const p3 = points[(i+2)%n];
+
+  return {
+    x: catmullRom(p0.x,p1.x,p2.x,p3.x,local),
+    z: catmullRom(p0.z,p1.z,p2.z,p3.z,local)
+  };
+}
+
+/* ---------------- CHECKPOINTS ---------------- */
+let checkpoints = [];
+let checkpointCount = 18;
+
+function buildCheckpoints(){
+  checkpoints = [];
+  for(let i=0;i<checkpointCount;i++){
+    const u = i/checkpointCount;
+    const p = sampleCurve(RAW_POINTS,u);
+    checkpoints.push({u, x:p.x, z:p.z});
+  }
+}
+
+/* ---------------- CARS ---------------- */
+const cars = [
+  {name:"Red", color:"#ff4d4d", progress:0, speed:0.18, laps:0, nextCP:0},
+  {name:"Blue", color:"#4dd0ff", progress:0.02, speed:0.175, laps:0, nextCP:0},
+  {name:"Green", color:"#7dff7d", progress:0.04, speed:0.17, laps:0, nextCP:0},
+  {name:"Yellow", color:"#ffd24d", progress:0.06, speed:0.165, laps:0, nextCP:0}
+];
+
+let totalLaps = 3;
+let simRunning = false;
+let raceStarted = false;
+let raceStartTime = null;
+let raceEndTime = null;
+let winner = null;
+
+/* ---------------- UI ELEMENTS ---------------- */
+const logDiv = document.getElementById("log");
+const raceTimeSpan = document.getElementById("raceTime");
+const winnerBanner = document.getElementById("winnerBanner");
+const winnerText = document.getElementById("winnerText");
+const winnerDetail = document.getElementById("winnerDetail");
+
+const posRed = document.getElementById("posRed");
+const posBlue = document.getElementById("posBlue");
+const posGreen = document.getElementById("posGreen");
+const posYellow = document.getElementById("posYellow");
+
+const cpInput = document.getElementById("cpInput");
+const lapInput = document.getElementById("lapInput");
+const playerNameInput = document.getElementById("playerNameInput");
+
+/* ---------------- LOGGING ---------------- */
+function log(message){
+  const time = raceStarted && raceStartTime != null
+    ? (((performance.now()-raceStartTime)/1000).toFixed(1) + "s")
+    : "—";
+  const line = document.createElement("div");
+  line.textContent = `[${time}] ${message}`;
+  logDiv.appendChild(line);
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+/* ---------------- DRAWING ---------------- */
+function drawCheckpointDots(){
+  ctx.fillStyle="#00ff88";
+  checkpoints.forEach((cp,idx)=>{
+    const s = worldToScreen(cp);
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,4,0,Math.PI*2);
+    ctx.fill();
+
+    // Optional small index label
+    ctx.fillStyle="#001";
+    ctx.font="9px system-ui";
+    ctx.fillText(idx.toString(), s.x+5, s.y-3);
+    ctx.fillStyle="#00ff88";
+  });
+}
+
+function drawCars(){
+  cars.forEach(c=>{
+    const u = c.progress % 1;
+    const p = sampleCurve(RAW_POINTS,u);
+    const s = worldToScreen(p);
+
+    ctx.fillStyle = c.color;
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,10,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle="#000";
+    ctx.font="11px system-ui";
+    ctx.fillText(`${c.name} L${c.laps}`, s.x+12, s.y+4);
+  });
+}
+
+/* ---------------- RACE LOGIC ---------------- */
+function resetRaceState(){
+  cars.forEach((c,i)=>{
+    c.progress = i*0.02;
+    c.laps = 0;
+    c.nextCP = 0;
+  });
+  simRunning = false;
+  raceStarted = false;
+  raceStartTime = null;
+  raceEndTime = null;
+  winner = null;
+  winnerBanner.style.display="none";
+  logDiv.innerHTML="";
+  raceTimeSpan.textContent="00.0s";
+  updatePositionsUI();
+}
+
+function updateRaceTime(){
+  if(raceStarted && raceStartTime!=null){
+    const t = ( (raceEndTime ?? performance.now()) - raceStartTime )/1000;
+    raceTimeSpan.textContent = t.toFixed(1) + "s";
+  }
+}
+
+function updatePositionsUI(){
+  const ordered = [...cars].sort((a,b)=>{
+    if(a.laps!==b.laps) return b.laps - a.laps;
+    return (b.progress % 1) - (a.progress % 1);
+  });
+  const labels = {};
+  ordered.forEach((c,idx)=>{
+    labels[c.name] = `${idx+1} / L${c.laps} / ${(c.progress%1).toFixed(2)}`;
+  });
+  posRed.textContent = labels["Red"];
+  posBlue.textContent = labels["Blue"];
+  posGreen.textContent = labels["Green"];
+  posYellow.textContent = labels["Yellow"];
+}
+
+function handleCheckpointsAndLaps(car){
+  const u = car.progress % 1;
+  let cp = checkpoints[car.nextCP];
+  while(cp && u >= cp.u){
+    log(`${car.name} passed checkpoint ${car.nextCP}`);
+    car.nextCP = (car.nextCP + 1) % checkpointCount;
+    if(car.nextCP === 0){
+      // crossed start/finish line in terms of CP sequence,
+      // but lap will be counted on progress wrap below
+    }
+    cp = checkpoints[car.nextCP];
+  }
+
+  // Lap completion when progress wraps
+  if(car.progress >= (car.laps+1)){
+    car.laps += 1;
+    log(`${car.name} completed lap ${car.laps}`);
+    if(car.laps >= totalLaps && !winner){
+      winner = car;
+      raceEndTime = performance.now();
+      simRunning = false;
+      showWinner(car);
+      log(`${car.name} wins the race!`);
+    }
+  }
+}
+
+function step(dt){
+  if(!simRunning) return;
+
+  cars.forEach(c=>{
+    const jitter = (Math.random()-0.5)*0.02;
+    const baseSpeed = c.speed + jitter;
+    c.progress += baseSpeed*dt*0.15; // tuned scale factor
+
+    handleCheckpointsAndLaps(c);
+  });
+
+  updatePositionsUI();
+}
+
+/* ---------------- WINNER ---------------- */
+function showWinner(car){
+  const playerName = playerNameInput.value.trim() || "Guest";
+  const totalTime = raceEndTime && raceStartTime
+    ? ((raceEndTime - raceStartTime)/1000).toFixed(1)
+    : "—";
+  winnerText.textContent = `${car.name} wins!`;
+  winnerDetail.textContent = `Total time: ${totalTime}s · Spectator: ${playerName}`;
+  winnerBanner.style.display="block";
+}
+
+/* ---------------- MAIN LOOP ---------------- */
+let lastTimestamp = null;
+function loop(timestamp){
+  if(lastTimestamp==null) lastTimestamp = timestamp;
+  const dt = (timestamp - lastTimestamp)/1000;
+  lastTimestamp = timestamp;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // track line intentionally NOT drawn (hidden)
+  drawCheckpointDots();
+  drawCars();
+
+  if(simRunning){
+    step(dt);
+  }
+  updateRaceTime();
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------------- UI HOOKUP ---------------- */
+const startOverlay = document.getElementById("startOverlay");
+const startButton = document.getElementById("startButton");
+const startName = document.getElementById("startName");
+
+startButton.onclick = ()=>{
+  startOverlay.style.display="none";
+  const name = startName.value.trim();
+  if(name) playerNameInput.value = name;
+  // we only arm the race; actual sim starts when user clicks Start Race
+};
+
+document.getElementById("startSimBtn").onclick = ()=>{
+  checkpointCount = parseInt(cpInput.value,10) || 18;
+  totalLaps = parseInt(lapInput.value,10) || 3;
+  buildCheckpoints();
+  if(!raceStarted){
+    raceStarted = true;
+    raceStartTime = performance.now();
+    log(`Race started: ${totalLaps} laps, ${checkpointCount} checkpoints`);
+  }else{
+    log("Race resumed");
+  }
+  simRunning = true;
+};
+
+document.getElementById("resetSimBtn").onclick = ()=>{
+  resetRaceState();
+  log("Race reset");
+};
+
+/* ---------------- INITIALIZE ---------------- */
+buildCheckpoints();
+resetRaceState();
+</script>
+
+</body>
+</html>

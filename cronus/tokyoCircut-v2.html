@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Track Preview — v1.0-UserTrackImport</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{--bg:#000;--hud:#0ff}
+  html,body{height:100%;margin:0;background:var(--bg);color:#dff;font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+  #app{position:relative;height:100vh;overflow:hidden}
+  canvas#mapCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1;background:#071018}
+  #ui{position:absolute;right:12px;top:12px;z-index:40;width:320px;background:rgba(0,0,0,0.6);padding:12px;border-radius:10px;border:1px solid rgba(0,255,255,0.06)}
+  #ui h3{margin:0 0 8px 0;color:var(--hud)}
+  #ui label{display:block;font-size:13px;color:#9fd;margin-top:8px}
+  #ui button,input,select,textarea{width:100%;box-sizing:border-box;margin-top:8px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:#071018;color:var(--hud)}
+  #log{position:absolute;left:12px;bottom:12px;z-index:40;width:46%;max-width:760px;background:rgba(0,0,0,0.6);padding:10px;border-radius:8px;border:1px solid rgba(0,255,255,0.06);font-size:13px;height:160px;overflow:auto}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .red{background:#ff4d4d}.blue{background:#4dd0ff}.green{background:#7dff7d}.yellow{background:#ffd24d}
+  #versionTag{font-size:12px;color:#9fd;margin-top:6px}
+  #exportArea{height:90px;font-size:12px;resize:vertical}
+  #winner{position:absolute;left:50%;top:18%;transform:translateX(-50%);z-index:60;background:linear-gradient(90deg,#0008,#0008);padding:16px 22px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);display:none}
+  #winner h2{margin:0;color:#fff}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="mapCanvas"></canvas>
+
+  <div id="ui">
+    <h3>Track Preview — <span id="version">v1.0-UserTrackImport</span></h3>
+
+    <label>Player name (optional)</label>
+    <input id="playerName" placeholder="Enter name (spectator)" />
+
+    <label>Map image path (optional)</label>
+    <input id="mapPath" value="2pvJj6g.jpg" />
+
+    <label>Track source</label>
+    <select id="trackSource">
+      <option value="imported">Use imported points (this version)</option>
+      <option value="default">Use built-in default</option>
+    </select>
+
+    <label>Checkpoints</label>
+    <input id="checkpointCount" type="number" value="18" min="4" max="48" />
+
+    <label>Controls</label>
+    <button id="startSim">Start Simulation</button>
+    <button id="resetSim">Reset</button>
+
+    <label>Export resampled track (JSON)</label>
+    <textarea id="exportArea" placeholder="Resampled track JSON will appear here"></textarea>
+    <button id="exportBtn">Generate Export JSON</button>
+
+    <div id="versionTag">Version tag saved in UI for reference</div>
+  </div>
+
+  <div id="log" aria-live="polite"></div>
+
+  <div id="winner"><h2 id="winnerText"></h2></div>
+</div>
+
+<script>
+/* Track Preview v1.0 - UserTrackImport
+   - Builds a smooth closed CatmullRom curve from the user's provided points
+   - Resamples the curve and generates N checkpoints (default 18)
+   - Draws the map (optional), the smoothed track, checkpoints, and simulated cars
+   - Exports resampled track JSON for copy/paste
+*/
+
+/* ---------- User-provided raw points (exactly as given) ---------- */
+const RAW_POINTS = [
+  {"x":143.84880591031444,"z":-36.24420136303764},
+  {"x":137.7130748525285,"z":-144.64211671725562},
+  {"x":107.03441956359889,"z":-156.2318309375179},
+  {"x":104.30742798236071,"z":-201.90893992325758},
+  {"x":164.9829906649104,"z":-229.17885573563947},
+  {"x":102.26218429643207,"z":-242.13206574652088},
+  {"x":85.21848691369338,"z":-227.81535994502036},
+  {"x":77.03751216997883,"z":-255.08527575740226},
+  {"x":42.95011740450147,"z":-251.67653628085452},
+  {"x":77.71926006528837,"z":-71.01334402382454},
+  {"x":-129.53210010881395,"z":81.69818452551402},
+  {"x":-147.25754538686218,"z":74.88070557241855},
+  {"x":-174.52746119924404,"z":102.83236928010997},
+  {"x":-141.8035622243858,"z":175.77939407823152},
+  {"x":-67.49304163564517,"z":245.31767939980531},
+  {"x":-92.03596586678886,"z":318.26470419792685},
+  {"x":108.39791535421799,"z":167.59841933451696},
+  {"x":115.21539430731346,"z":93.28789874577632},
+  {"x":143.1670580150049,"z":100.78712559418133},
+  {"x":145.8940495962431,"z":-1.4750587022507347}
+];
+
+/* ---------- Canvas and UI refs ---------- */
+const canvas = document.getElementById('mapCanvas');
+const ctx = canvas.getContext('2d');
+let W = canvas.width = innerWidth;
+let H = canvas.height = innerHeight;
+
+const mapPathInput = document.getElementById('mapPath');
+const trackSource = document.getElementById('trackSource');
+const checkpointCountInput = document.getElementById('checkpointCount');
+const startBtn = document.getElementById('startSim');
+const resetBtn = document.getElementById('resetSim');
+const exportArea = document.getElementById('exportArea');
+const exportBtn = document.getElementById('exportBtn');
+const logEl = document.getElementById('log');
+const winnerBanner = document.getElementById('winner');
+const winnerText = document.getElementById('winnerText');
+const versionEl = document.getElementById('version');
+
+/* ---------- Map image (optional) ---------- */
+let mapImage = new Image();
+let mapLoaded = false;
+function loadMap(path){
+  mapLoaded = false;
+  mapImage = new Image();
+  mapImage.onload = ()=>{ mapLoaded = true; draw(); };
+  mapImage.onerror = ()=>{ mapLoaded = false; draw(); };
+  mapImage.src = path;
+}
+loadMap(mapPathInput.value);
+mapPathInput.addEventListener('change', ()=> loadMap(mapPathInput.value));
+
+/* ---------- Catmull-Rom utilities (JS, no three.js required) ---------- */
+function catmullRomScalar(p0,p1,p2,p3,t){
+  const t2 = t*t, t3 = t2*t;
+  const a = -0.5*p0 + 1.5*p1 - 1.5*p2 + 0.5*p3;
+  const b = p0 - 2.5*p1 + 2*p2 - 0.5*p3;
+  const c = -0.5*p0 + 0.5*p2;
+  const d = p1;
+  return a*t3 + b*t2 + c*t + d;
+}
+function sampleCatmull(points, u){
+  const n = points.length;
+  if (n === 0) return {x:0,z:0};
+  const totalSeg = n;
+  const t = u * totalSeg;
+  const seg = Math.floor(t) % n;
+  const local = t - Math.floor(t);
+  const i0 = (seg - 1 + n) % n;
+  const i1 = seg;
+  const i2 = (seg + 1) % n;
+  const i3 = (seg + 2) % n;
+  const p0 = points[i0], p1 = points[i1], p2 = points[i2], p3 = points[i3];
+  const x = catmullRomScalar(p0.x,p1.x,p2.x,p3.x,local);
+  const z = catmullRomScalar(p0.z,p1.z,p2.z,p3.z,local);
+  return {x,z};
+}
+
+/* ---------- Build curve from RAW_POINTS and resample ---------- */
+function buildCurveFromRaw(rawPoints, samples=300){
+  // convert raw to local points array
+  const pts = rawPoints.map(p => ({x:p.x, z:p.z}));
+  // resample evenly by u
+  const resampled = [];
+  for(let i=0;i<samples;i++){
+    const u = i / samples;
+    resampled.push(sampleCatmull(pts, u));
+  }
+  return {control: pts, resampled};
+}
+
+/* ---------- Checkpoint generation ---------- */
+function generateCheckpoints(controlPoints, count){
+  const cps = [];
+  for(let i=0;i<count;i++){
+    const u = i / count;
+    const p = sampleCatmull(controlPoints, u);
+    cps.push({u, x: p.x, z: p.z});
+  }
+  return cps;
+}
+
+/* ---------- Simulation (simple progress-based) ---------- */
+let cars = [];
+function initCars(){
+  cars = [
+    {name:'Red', color:'#ff4d4d', progress:0.0, speed:0.18 + Math.random()*0.06, consistency:0.85 + Math.random()*0.1, finished:false, finishTime:null},
+    {name:'Blue', color:'#4dd0ff', progress:0.02, speed:0.17 + Math.random()*0.07, consistency:0.8 + Math.random()*0.15, finished:false, finishTime:null},
+    {name:'Green', color:'#7dff7d', progress:0.04, speed:0.16 + Math.random()*0.08, consistency:0.82 + Math.random()*0.12, finished:false, finishTime:null},
+    {name:'Yellow', color:'#ffd24d', progress:0.06, speed:0.15 + Math.random()*0.09, consistency:0.78 + Math.random()*0.14, finished:false, finishTime:null}
+  ];
+}
+initCars();
+
+let simRunning = false;
+let simStart = null;
+let simElapsed = 0;
+let winner = null;
+
+/* ---------- Drawing helpers ---------- */
+function clearCanvas(){
+  ctx.clearRect(0,0,W,H);
+}
+function draw(){
+  clearCanvas();
+  // draw map background if loaded
+  if (mapLoaded){
+    // fit image to canvas
+    const iw = mapImage.width, ih = mapImage.height;
+    const scale = Math.min(W/iw, H/ih);
+    const ox = (W - iw*scale)/2, oy = (H - ih*scale)/2;
+    ctx.drawImage(mapImage, ox, oy, iw*scale, ih*scale);
+  } else {
+    ctx.fillStyle = '#071018';
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // choose track points
+  const control = (trackSource.value === 'imported') ? RAW_POINTS.map(p=>({x:p.x,z:p.z})) : [
+    {x:0,z:260},{x:90,z:180},{x:140,z:100},{x:160,z:20},{x:140,z:-60},{x:80,z:-140},
+    {x:0,z:-220},{x:-80,z:-140},{x:-140,z:-60},{x:-160,z:20},{x:-140,z:100},{x:-90,z:180}
+  ];
+
+  // resample
+  const samples = 400;
+  const res = [];
+  for(let i=0;i<samples;i++){
+    const u = i/samples;
+    res.push(sampleCatmull(control, u));
+  }
+
+  // compute bounds for mapping world->canvas
+  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+  for(const p of res){ minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minZ=Math.min(minZ,p.z); maxZ=Math.max(maxZ,p.z); }
+  const padX = (maxX-minX)*0.12 || 40, padZ = (maxZ-minZ)*0.12 || 40;
+  minX -= padX; maxX += padX; minZ -= padZ; maxZ += padZ;
+  const worldW = maxX - minX || 1, worldH = maxZ - minZ || 1;
+  const sX = W / worldW, sY = H / worldH;
+  const s = Math.min(sX, sY) * 0.95;
+  const cx = W/2, cy = H/2;
+  const worldCenterX = (minX + maxX)/2, worldCenterZ = (minZ + maxZ)/2;
+  function mapToCanvas(pt){
+    return { x: cx + (pt.x - worldCenterX) * s, y: cy + (pt.z - worldCenterZ) * s };
+  }
+
+  // draw track (dark base then neon)
+  ctx.lineWidth = 8; ctx.strokeStyle = '#111';
+  ctx.beginPath();
+  res.forEach((p,i)=>{ const m = mapToCanvas(p); if(i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
+  ctx.closePath(); ctx.stroke();
+
+  ctx.lineWidth = 3; ctx.strokeStyle = '#00f6ff';
+  ctx.beginPath();
+  res.forEach((p,i)=>{ const m = mapToCanvas(p); if(i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
+  ctx.closePath(); ctx.stroke();
+
+  // draw checkpoints
+  const cpCount = parseInt(checkpointCountInput.value,10) || 18;
+  const checkpoints = [];
+  for(let i=0;i<cpCount;i++){
+    const u = i / cpCount;
+    const p = sampleCatmull(control, u);
+    checkpoints.push(p);
+    const m = mapToCanvas(p);
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(0,255,0,0.12)';
+    ctx.arc(m.x,m.y,10,0,Math.PI*2); ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = '#7dff7d'; ctx.beginPath(); ctx.arc(m.x,m.y,10,0,Math.PI*2); ctx.stroke();
+  }
+
+  // draw cars
+  for(const c of cars){
+    const p = sampleCatmull(control, c.progress % 1);
+    const m = mapToCanvas(p);
+    ctx.beginPath();
+    ctx.fillStyle = c.color; ctx.arc(m.x,m.y,10,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#000'; ctx.font = '11px system-ui'; ctx.fillText(c.name, m.x + 12, m.y + 4);
+  }
+}
+
+/* ---------- Simulation loop ---------- */
+function resetSimulation(){
+  initCars();
+  simRunning = false;
+  simStart = null;
+  simElapsed = 0;
+  winner = null;
+  winnerBanner.style.display = 'none';
+  exportArea.value = '';
+  logEl.innerHTML = '';
+  draw();
+  log('Simulation reset.');
+}
+function log(msg){
+  const t = (simElapsed/1000).toFixed(1);
+  const el = document.createElement('div');
+  el.textContent = `[${t}s] ${msg}`;
+  logEl.prepend(el);
+}
+function startSimulation(){
+  if (simRunning) return;
+  simRunning = true;
+  simStart = Date.now();
+  simElapsed = 0;
+  log('Simulation started.');
+  step();
+}
+function step(){
+  if (!simRunning) return;
+  const now = Date.now();
+  simElapsed = now - simStart;
+  // advance cars
+  const dt = 1/60; // seconds per step (approx)
+  const cpCount = parseInt(checkpointCountInput.value,10) || 18;
+  const control = (trackSource.value === 'imported') ? RAW_POINTS.map(p=>({x:p.x,z:p.z})) : [
+    {x:0,z:260},{x:90,z:180},{x:140,z:100},{x:160,z:20},{x:140,z:-60},{x:80,z:-140},
+    {x:0,z:-220},{x:-80,z:-140},{x:-140,z:-60},{x:-160,z:20},{x:-140,z:100},{x:-90,z:180}
+  ];
+  for(const car of cars){
+    if (car.finished) continue;
+    const variability = (1 - car.consistency) * 0.6;
+    const rnd = (Math.random() - 0.5) * variability;
+    const delta = (car.speed + (car.speedStat || car.speed)) ? 0 : 0; // placeholder
+    // simpler: progress increment based on speedStat + rnd
+    const inc = (car.speedStat + rnd) * dt * 0.12;
+    const prev = car.progress;
+    car.progress += inc;
+    // checkpoint crossing detection (simple)
+    for(let i=0;i<cpCount;i++){
+      const u = i / cpCount;
+      let a = prev % 1; if (a<0) a+=1;
+      let b = car.progress % 1; if (b<0) b+=1;
+      if (b >= a){
+        if (u > a && u <= b) {
+          // passed
+        }
+      } else {
+        if (u > a || u <= b) {
+          // passed
+        }
+      }
+    }
+    // lap detection (approx)
+    if (car.progress >= 1.0){
+      car.progress -= 1.0;
+      car.lap = (car.lap || 0) + 1;
+      log(`${car.name} completed lap ${car.lap}`);
+      if (car.lap >= (1)) {
+        car.finished = true;
+        car.finishTime = simElapsed;
+        if (!winner || car.finishTime < winner.finishTime) {
+          winner = car;
+          announceWinner(car);
+        }
+      }
+    }
+  }
+  draw();
+  // stop when winner found
+  if (winner){
+    simRunning = false;
+    log(`Winner: ${winner.name} at ${(winner.finishTime/1000).toFixed(2)}s`);
+    return;
+  }
+  // schedule next
+  requestAnimationFrame(step);
+}
+function announceWinner(car){
+  winnerText.textContent = `${car.name} wins! Time: ${(car.finishTime/1000).toFixed(2)}s`;
+  winnerBanner.style.display = 'block';
+}
+
+/* ---------- Export resampled track JSON ---------- */
+exportBtn.addEventListener('click', ()=>{
+  const control = RAW_POINTS.map(p=>({x:p.x,z:p.z}));
+  const samples = 240;
+  const resampled = [];
+  for(let i=0;i<samples;i++){
+    const u = i/samples;
+    resampled.push(sampleCatmull(control, u));
+  }
+  exportArea.value = JSON.stringify(resampled, null, 2);
+  log('Resampled track JSON generated.');
+});
+
+/* ---------- UI wiring ---------- */
+startBtn.addEventListener('click', ()=> startSimulation());
+resetBtn.addEventListener('click', ()=> resetSimulation());
+window.addEventListener('resize', ()=>{ W = canvas.width = innerWidth; H = canvas.height = innerHeight; draw(); });
+
+/* ---------- Initial draw and reset ---------- */
+resetSimulation();
+draw();
+
+</script>
+</body>
+</html>

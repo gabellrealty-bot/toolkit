@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Simulated Circuit Race — Red / Blue / Green / Yellow</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{--bg:#000;--neon:#00f6ff;--accent:#ff0077;--hud:#0ff;}
+  html,body{height:100%;margin:0;background:var(--bg);color:#dff; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+  canvas{display:block}
+  #container{position:relative;height:100vh;overflow:hidden}
+  #threeCanvas{position:absolute;inset:0;z-index:1}
+  #hud{position:absolute;left:12px;top:12px;z-index:30;color:var(--hud);text-shadow:0 0 8px rgba(0,255,255,0.12);font-size:14px}
+  #hud .row{margin-bottom:6px}
+  #controls{position:absolute;right:12px;top:12px;z-index:30;background:rgba(0,0,0,0.6);padding:10px;border-radius:8px;border:1px solid rgba(0,255,255,0.06);width:260px}
+  #controls input,#controls button{width:100%;box-sizing:border-box;margin:6px 0;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:#071018;color:var(--hud)}
+  #minimapWrap{position:absolute;right:12px;bottom:12px;z-index:35;width:360px;height:260px;background:rgba(0,0,0,0.75);padding:10px;border-radius:8px;border:1px solid rgba(0,255,255,0.06);box-sizing:border-box}
+  #minimapTitle{color:var(--hud);font-weight:700;font-size:12px;text-align:center;margin-bottom:6px}
+  #minimapCanvas{width:100%;height:100%;background:#071018;border-radius:6px;display:block}
+  #startOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;background:linear-gradient(180deg,rgba(0,0,0,0.85),rgba(0,0,0,0.6))}
+  #startCard{width:520px;max-width:92%;background:linear-gradient(180deg,#041018,#071426);padding:22px;border-radius:12px;border:1px solid rgba(0,255,255,0.06);text-align:center;color:#dff}
+  #startCard h1{font-size:34px;margin:0 0 8px;background:linear-gradient(90deg,#00f6ff,#ff00d4);-webkit-background-clip:text;color:transparent;font-weight:900}
+  #startCard p{margin:0 0 12px;color:#bfe;opacity:0.9}
+  #loadingBar{width:100%;height:8px;background:#001;border-radius:6px;overflow:hidden;margin-top:10px}
+  #loadingFill{height:100%;width:0;background:linear-gradient(90deg,#00f6ff,#ff00d4);transition:width .25s linear}
+  #log{position:absolute;left:12px;bottom:12px;z-index:30;width:48%;max-width:720px;background:rgba(0,0,0,0.6);padding:10px;border-radius:8px;border:1px solid rgba(0,255,255,0.06);font-size:13px;height:180px;overflow:auto}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .red{background:#ff4d4d}.blue{background:#4dd0ff}.green{background:#7dff7d}.yellow{background:#ffd24d}
+  #winnerBanner{position:absolute;left:50%;top:18%;transform:translateX(-50%);z-index:70;background:linear-gradient(90deg,#0008,#0008);padding:18px 28px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);display:none}
+  #winnerBanner h2{margin:0;color:#fff}
+  small{color:#9fd}
+</style>
+</head>
+<body>
+<div id="container">
+  <canvas id="threeCanvas"></canvas>
+
+  <div id="hud">
+    <div class="row"><strong>East Asia Tech Circuit — Simulated Race</strong></div>
+    <div class="row">Start Time: <span id="startTime">—</span></div>
+    <div class="row">Elapsed: <span id="elapsed">0.0</span>s</div>
+    <div class="row">Checkpoints: <span id="cpCount">18</span> &nbsp; Laps: <span id="laps">1</span></div>
+    <div class="row">Positions:
+      <div id="positions" style="margin-top:6px">
+        <div><span class="dot red"></span>Red: <span id="posRed">—</span></div>
+        <div><span class="dot blue"></span>Blue: <span id="posBlue">—</span></div>
+        <div><span class="dot green"></span>Green: <span id="posGreen">—</span></div>
+        <div><span class="dot yellow"></span>Yellow: <span id="posYellow">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <input id="playerNameInput" placeholder="Enter player name (optional)" />
+    <label style="font-size:12px;color:#9fd;margin-top:6px">Upload map image (optional)</label>
+    <input id="mapUploader" type="file" accept="image/*" />
+    <button id="startSimBtn">Start Simulation</button>
+    <button id="resetBtn">Reset</button>
+    <small>Simulation runs automatically; player is spectator.</small>
+  </div>
+
+  <div id="minimapWrap">
+    <div id="minimapTitle">CIRCUIT MAP</div>
+    <canvas id="minimapCanvas" width="320" height="200"></canvas>
+  </div>
+
+  <div id="log" aria-live="polite"></div>
+
+  <div id="winnerBanner"><h2 id="winnerText"></h2></div>
+
+  <!-- Start overlay (optional cinematic) -->
+  <div id="startOverlay" style="display:none">
+    <div id="startCard">
+      <h1>READY TO WATCH?</h1>
+      <p>Upload the map if you want the minimap background to match your image. Enter a name and press Start to begin the simulated race.</p>
+      <input id="overlayName" placeholder="Enter player name (optional)" />
+      <div id="loadingBar"><div id="loadingFill"></div></div>
+      <div style="margin-top:8px"><small id="loadingText">Preparing scene…</small></div>
+      <button id="overlayStart" disabled style="margin-top:12px">START</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+  Simulated Race HTML
+  - Four cars: Red, Blue, Green, Yellow
+  - 18 checkpoints + finish line (finish after 1 lap by default)
+  - Optional map image upload for minimap background
+  - Start time, elapsed time, event log, and winner banner
+  - Player is spectator; simulation runs automatically once started
+  ============================================================ */
+
+/* ---------- Config ---------- */
+const CHECKPOINT_COUNT = 18;
+const LAPS = 1; // number of laps to complete
+const CAR_COLORS = ['red','blue','green','yellow'];
+const CAR_NAMES = ['Red','Blue','Green','Yellow'];
+const SIM_TICK = 1000/60; // 60fps simulation step for smooth progress
+
+/* ---------- Minimal 2D track representation (spline-like) ----------
+   We use a closed CatmullRom-like set of 3D points (x,z) to represent the circuit.
+   These points approximate the route shape used in prior scripts.
+   The simulation uses normalized progress [0..1) along the path.
+*/
+const TRACK_POINTS = [
+  {x:0, z:260},
+  {x:90, z:180},
+  {x:140, z:100},
+  {x:160, z:20},
+  {x:140, z:-60},
+  {x:80, z:-140},
+  {x:0, z:-220},
+  {x:-80, z:-140},
+  {x:-140, z:-60},
+  {x:-160, z:20},
+  {x:-140, z:100},
+  {x:-90, z:180}
+];
+
+// Utility: Catmull-Rom interpolation for closed curve
+function catmullRom(p0,p1,p2,p3,t){
+  const t2 = t*t, t3 = t2*t;
+  const a = -0.5*p0 + 1.5*p1 - 1.5*p2 + 0.5*p3;
+  const b = p0 - 2.5*p1 + 2*p2 - 0.5*p3;
+  const c = -0.5*p0 + 0.5*p2;
+  const d = p1;
+  return a*t3 + b*t2 + c*t + d;
+}
+function sampleTrack(u){
+  // u in [0,1)
+  const n = TRACK_POINTS.length;
+  const totalSeg = n;
+  const t = u * totalSeg;
+  const seg = Math.floor(t) % n;
+  const local = t - Math.floor(t);
+  const i0 = (seg - 1 + n) % n;
+  const i1 = seg;
+  const i2 = (seg + 1) % n;
+  const i3 = (seg + 2) % n;
+  const p0 = TRACK_POINTS[i0], p1 = TRACK_POINTS[i1], p2 = TRACK_POINTS[i2], p3 = TRACK_POINTS[i3];
+  const x = catmullRom(p0.x,p1.x,p2.x,p3.x,local);
+  const z = catmullRom(p0.z,p1.z,p2.z,p3.z,local);
+  return {x,z};
+}
+
+/* Precompute checkpoint positions (u values and world coords) */
+const checkpoints = [];
+for(let i=0;i<CHECKPOINT_COUNT;i++){
+  const u = i / CHECKPOINT_COUNT;
+  const pos = sampleTrack(u);
+  checkpoints.push({u,pos,index:i});
+}
+
+/* ---------- Simulation state ---------- */
+const cars = CAR_NAMES.map((name, idx) => ({
+  name,
+  color: CAR_COLORS[idx],
+  progress: idx * 0.02, // staggered start positions slightly
+  speedStat: 0.18 + Math.random()*0.06, // base speed factor
+  consistency: 0.9 - Math.random()*0.2, // affects variability
+  checkpointsPassed: 0,
+  lap: 0,
+  finished: false,
+  finishTime: null
+}));
+
+let simRunning = false;
+let simStartTime = null;
+let simElapsed = 0;
+let simInterval = null;
+let winner = null;
+
+/* ---------- DOM references ---------- */
+const startBtn = document.getElementById('startSimBtn');
+const resetBtn = document.getElementById('resetBtn');
+const playerNameInput = document.getElementById('playerNameInput');
+const logEl = document.getElementById('log');
+const startTimeEl = document.getElementById('startTime');
+const elapsedEl = document.getElementById('elapsed');
+const posRed = document.getElementById('posRed');
+const posBlue = document.getElementById('posBlue');
+const posGreen = document.getElementById('posGreen');
+const posYellow = document.getElementById('posYellow');
+const minimapCanvas = document.getElementById('minimapCanvas');
+const minimapCtx = minimapCanvas.getContext('2d');
+const mapUploader = document.getElementById('mapUploader');
+const winnerBanner = document.getElementById('winnerBanner');
+const winnerText = document.getElementById('winnerText');
+
+/* Overlay elements (optional cinematic) */
+const overlay = document.getElementById('startOverlay');
+const overlayStart = document.getElementById('overlayStart');
+const overlayName = document.getElementById('overlayName');
+const loadingFill = document.getElementById('loadingFill');
+const loadingText = document.getElementById('loadingText');
+const loadingPercent = document.getElementById('loadingPercent');
+
+/* ---------- Minimap image handling ---------- */
+let minimapImage = null;
+let minimapLoaded = false;
+mapUploader.addEventListener('change', (ev) => {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    minimapImage = img;
+    minimapLoaded = true;
+    drawMinimap();
+    log(`Minimap image loaded from upload.`);
+    // If overlay waiting, enable start
+    overlayStart.disabled = false;
+    startBtn.disabled = false;
+  };
+  img.onerror = () => {
+    minimapImage = null;
+    minimapLoaded = false;
+    drawMinimap();
+    log('Uploaded image failed to load; using default minimap.');
+    overlayStart.disabled = false;
+    startBtn.disabled = false;
+  };
+  img.src = URL.createObjectURL(f);
+});
+
+/* Try to load fallback image if present (non-blocking) */
+(function tryFallback(){
+  const img = new Image();
+  img.onload = () => { if (!minimapLoaded) { minimapImage = img; minimapLoaded = true; drawMinimap(); } };
+  img.onerror = ()=>{};
+  img.src = 'assets/track-map.jpg';
+})();
+
+/* ---------- Drawing minimap and track ---------- */
+function drawMinimap(){
+  const cw = minimapCanvas.width, ch = minimapCanvas.height;
+  minimapCtx.clearRect(0,0,cw,ch);
+  if (minimapLoaded && minimapImage){
+    // fit image
+    const iw = minimapImage.width, ih = minimapImage.height;
+    const scale = Math.min(cw/iw, ch/ih);
+    const ox = (cw - iw*scale)/2, oy = (ch - ih*scale)/2;
+    minimapCtx.drawImage(minimapImage, ox, oy, iw*scale, ih*scale);
+    // compute mapping from world coords to image pixels
+    drawTrackOverlay(ox,oy,scale);
+  } else {
+    // fallback grid background
+    minimapCtx.fillStyle = '#071018';
+    minimapCtx.fillRect(0,0,cw,ch);
+    minimapCtx.strokeStyle = 'rgba(0,255,255,0.06)';
+    for(let y=10;y<ch;y+=10){ minimapCtx.beginPath(); minimapCtx.moveTo(0,y); minimapCtx.lineTo(cw,y); minimapCtx.stroke(); }
+    drawTrackOverlay(0,0,Math.min(cw/600,ch/600)); // arbitrary scale to fit
+  }
+}
+
+function computeBounds(){
+  // compute bounds of track points
+  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+  for(const p of TRACK_POINTS){ minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minZ=Math.min(minZ,p.z); maxZ=Math.max(maxZ,p.z); }
+  return {minX,maxX,minZ,maxZ};
+}
+const bounds = computeBounds();
+
+function drawTrackOverlay(ox,oy,scale){
+  // Map world coords to minimap pixels centered in image area
+  const cw = minimapCanvas.width, ch = minimapCanvas.height;
+  const worldCenterX = (bounds.minX + bounds.maxX)/2;
+  const worldCenterZ = (bounds.minZ + bounds.maxZ)/2;
+  // choose s so track fits image area
+  const worldW = bounds.maxX - bounds.minX || 1;
+  const worldH = bounds.maxZ - bounds.minZ || 1;
+  const imgW = (minimapLoaded && minimapImage) ? minimapImage.width*scale : cw;
+  const imgH = (minimapLoaded && minimapImage) ? minimapImage.height*scale : ch;
+  const sX = imgW / worldW;
+  const sY = imgH / worldH;
+  const s = Math.min(sX, sY) * 0.95;
+  const imgCenterX = ox + imgW/2;
+  const imgCenterY = oy + imgH/2;
+
+  function map(p){
+    return { x: imgCenterX + (p.x - worldCenterX) * s, y: imgCenterY + (p.z - worldCenterZ) * s };
+  }
+
+  // draw track path
+  minimapCtx.lineWidth = 6; minimapCtx.strokeStyle = '#222'; minimapCtx.beginPath();
+  const steps = 300;
+  for(let i=0;i<=steps;i++){
+    const u = i/steps;
+    const pt = sampleTrack(u);
+    const m = map(pt);
+    if(i===0) minimapCtx.moveTo(m.x,m.y); else minimapCtx.lineTo(m.x,m.y);
+  }
+  minimapCtx.stroke();
+  minimapCtx.lineWidth = 3; minimapCtx.strokeStyle = '#00f6ff'; minimapCtx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const u = i/steps;
+    const pt = sampleTrack(u);
+    const m = map(pt);
+    if(i===0) minimapCtx.moveTo(m.x,m.y); else minimapCtx.lineTo(m.x,m.y);
+  }
+  minimapCtx.stroke();
+
+  // draw checkpoints
+  for(const cp of checkpoints){
+    const m = map(cp.pos);
+    minimapCtx.beginPath();
+    minimapCtx.fillStyle = 'rgba(0,255,0,0.12)';
+    minimapCtx.arc(m.x,m.y,8,0,Math.PI*2);
+    minimapCtx.fill();
+    minimapCtx.beginPath();
+    minimapCtx.strokeStyle = '#7dff7d';
+    minimapCtx.lineWidth = 1.5;
+    minimapCtx.arc(m.x,m.y,8,0,Math.PI*2);
+    minimapCtx.stroke();
+  }
+
+  // draw car dots
+  for(const c of cars){
+    const pt = sampleTrack(c.progress % 1);
+    const m = map(pt);
+    minimapCtx.beginPath();
+    minimapCtx.fillStyle = c.color === 'red' ? '#ff4d4d' : c.color === 'blue' ? '#4dd0ff' : c.color === 'green' ? '#7dff7d' : '#ffd24d';
+    minimapCtx.arc(m.x,m.y,6,0,Math.PI*2);
+    minimapCtx.fill();
+    minimapCtx.beginPath();
+    minimapCtx.strokeStyle = '#fff';
+    minimapCtx.lineWidth = 1;
+    minimapCtx.arc(m.x,m.y,6,0,Math.PI*2);
+    minimapCtx.stroke();
+  }
+}
+
+/* ---------- Logging helper ---------- */
+function log(msg){
+  const time = (simElapsed/1000).toFixed(1);
+  const line = document.createElement('div');
+  line.textContent = `[${time}s] ${msg}`;
+  logEl.prepend(line);
+}
+
+/* ---------- Race mechanics ---------- */
+function resetSimulation(){
+  // reset cars
+  for(let i=0;i<cars.length;i++){
+    cars[i].progress = i * 0.02;
+    cars[i].checkpointsPassed = 0;
+    cars[i].lap = 0;
+    cars[i].finished = false;
+    cars[i].finishTime = null;
+  }
+  simRunning = false;
+  simStartTime = null;
+  simElapsed = 0;
+  winner = null;
+  startTimeEl.textContent = '—';
+  elapsedEl.textContent = '0.0';
+  logEl.innerHTML = '';
+  winnerBanner.style.display = 'none';
+  drawMinimap();
+  updatePositionsUI();
+  startBtn.disabled = false;
+  overlayStart.disabled = false;
+  loadingFill.style.width = '0%';
+  loadingText.textContent = 'Waiting for image or using default track...';
+}
+
+function updatePositionsUI(){
+  // sort by progress (descending)
+  const sorted = [...cars].sort((a,b)=> (b.lap + b.progress) - (a.lap + a.progress));
+  // map to positions
+  const posMap = {};
+  sorted.forEach((c,i)=> posMap[c.name] = i+1);
+  posRed.textContent = posMap['Red'];
+  posBlue.textContent = posMap['Blue'];
+  posGreen.textContent = posMap['Green'];
+  posYellow.textContent = posMap['Yellow'];
+}
+
+/* Determine if car crosses a checkpoint between previous and current progress */
+function checkCheckpointCrossing(car, prevProgress, newProgress){
+  // convert to absolute u in [0,1) for current lap
+  // handle wrap-around
+  const passed = [];
+  for(const cp of checkpoints){
+    const u = cp.u;
+    // normalize prev and new to [0,1) range
+    let a = prevProgress % 1; if (a<0) a+=1;
+    let b = newProgress % 1; if (b<0) b+=1;
+    // if no wrap
+    if (b >= a){
+      if (u > a && u <= b) passed.push(cp.index);
+    } else {
+      // wrapped around end -> start
+      if (u > a || u <= b) passed.push(cp.index);
+    }
+  }
+  return passed;
+}
+
+/* Simulate one tick (dt in seconds) */
+function simulateTick(dt){
+  if (!simRunning) return;
+  simElapsed = Date.now() - simStartTime;
+  elapsedEl.textContent = (simElapsed/1000).toFixed(1);
+
+  for(const car of cars){
+    if (car.finished) continue;
+    // base progress increment = speedStat * dt * factor
+    // add small random variation influenced by consistency
+    const variability = (1 - car.consistency) * 0.6;
+    const rnd = (Math.random() - 0.5) * variability;
+    const delta = (car.speedStat + rnd) * dt * 0.12; // tuned multiplier
+    const prev = car.progress;
+    car.progress += delta;
+    // checkpoint crossing detection
+    const passed = checkCheckpointCrossing(car, prev, car.progress);
+    if (passed.length > 0){
+      car.checkpointsPassed += passed.length;
+      log(`${car.name} passed ${passed.length} checkpoint(s). Total: ${car.checkpointsPassed}`);
+      // if passed enough checkpoints to complete a lap
+      if (car.checkpointsPassed >= CHECKPOINT_COUNT){
+        car.checkpointsPassed -= CHECKPOINT_COUNT;
+        car.lap += 1;
+        log(`${car.name} completed lap ${car.lap}`);
+        if (car.lap >= LAPS){
+          // finished
+          car.finished = true;
+          car.finishTime = simElapsed;
+          if (!winner || car.finishTime < winner.finishTime){
+            winner = car;
+            announceWinner(car);
+          }
+        }
+      }
+    }
+  }
+
+  updatePositionsUI();
+  drawMinimap();
+
+  // stop simulation when all cars finished or winner found (we stop at first winner)
+  if (winner){
+    simRunning = false;
+    log(`Winner: ${winner.name} (${winner.color.toUpperCase()}) at ${(winner.finishTime/1000).toFixed(2)}s`);
+    showWinnerBanner(winner);
+    startBtn.disabled = true;
+    overlayStart.disabled = true;
+  }
+}
+
+/* ---------- Winner UI ---------- */
+function showWinnerBanner(car){
+  winnerText.textContent = `${car.name} wins! Time: ${(car.finishTime/1000).toFixed(2)}s`;
+  winnerBanner.style.display = 'block';
+}
+
+/* ---------- Simulation control ---------- */
+function startSimulation(){
+  if (simRunning) return;
+  simRunning = true;
+  simStartTime = Date.now();
+  startTimeEl.textContent = new Date(simStartTime).toLocaleTimeString();
+  loadingFill.style.width = '100%';
+  loadingText.textContent = 'Race started';
+  // disable start controls
+  startBtn.disabled = true;
+  overlayStart.disabled = true;
+  // log initial state
+  log(`Race started. Competitors: ${cars.map(c=>c.name).join(', ')}`);
+  // run simulation loop using requestAnimationFrame for smoothness
+  let last = performance.now();
+  function loop(now){
+    if (!simRunning) return;
+    const dt = (now - last) / 1000;
+    last = now;
+    simulateTick(dt);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- UI wiring ---------- */
+startBtn.addEventListener('click', () => {
+  // copy overlay name if present
+  const name = playerNameInput.value.trim();
+  if (name) overlayName.value = name;
+  // enable start immediately
+  overlay.style.display = 'none';
+  overlayStart.disabled = true;
+  startSimulation();
+});
+
+resetBtn.addEventListener('click', () => {
+  resetSimulation();
+});
+
+overlayStart.addEventListener('click', () => {
+  // copy overlay name to main input
+  const name = overlayName.value.trim();
+  if (name) playerNameInput.value = name;
+  overlay.style.display = 'none';
+  startSimulation();
+});
+
+/* If nothing else, show overlay and enable its start after simulated load */
+overlay.style.display = 'flex';
+overlayStart.disabled = true;
+startBtn.disabled = true;
+let simulatedLoad = 0;
+const simLoadInterval = setInterval(()=>{
+  simulatedLoad += 8 + Math.random()*6;
+  loadingFill.style.width = Math.min(100, Math.floor(simulatedLoad)) + '%';
+  loadingPercent.textContent = Math.min(100, Math.floor(simulatedLoad));
+  if (simulatedLoad >= 100){
+    clearInterval(simLoadInterval);
+    overlayStart.disabled = false;
+    startBtn.disabled = false;
+    loadingText.textContent = 'Ready. Press START to begin.';
+  }
+}, 220);
+
+/* ---------- Initial draw ---------- */
+drawMinimap();
+updatePositionsUI();
+resetSimulation(); // sets initial state
+
+/* Expose a small API for debugging in console */
+window._race = {
+  cars, startSimulation, resetSimulation, drawMinimap, sampleTrack, checkpoints
+};
+</script>
+</body>
+</html>
