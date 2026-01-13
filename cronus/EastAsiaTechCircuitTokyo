@@ -2,498 +2,532 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>East Asia Tech Circuit Tokyo – Cyber Arcade (Minimap Image)</title>
+<title>Simulated Circuit Race — Red / Blue / Green / Yellow</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <style>
-  html,body { height:100%; margin:0; overflow:hidden; background:#000; font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  canvas { display:block; }
-  #hud { position:fixed; left:12px; top:12px; z-index:20; color:#0ff; text-shadow:0 0 8px rgba(0,255,255,0.6); font-size:14px; }
-  #hud .line { margin-bottom:4px; }
-  #controls { position:fixed; right:12px; top:12px; z-index:20; background:rgba(0,0,0,0.6); border-radius:8px; border:1px solid rgba(0,255,255,0.18); padding:8px; color:#fff; width:220px; }
-  #controls button, #controls input { width:100%; margin:6px 0; padding:8px; border-radius:6px; border:1px solid #0ff; background:#001422; color:#0ff; cursor:pointer; font-size:13px; }
-  #minimapWrap { position:fixed; right:12px; bottom:12px; z-index:25; width:320px; height:240px; background:rgba(0,0,0,0.75); border-radius:8px; padding:8px; box-sizing:border-box; border:1px solid rgba(0,255,255,0.08); }
-  #minimapTitle { color:#0ff; font-weight:700; font-size:12px; text-align:center; margin-bottom:6px; }
-  #minimapCanvas { width:100%; height:100%; display:block; border-radius:6px; background:#071018; }
-  #mapUploader { display:block; margin-top:6px; }
-  #uploaderLabel { font-size:12px; color:#9fd; margin-bottom:6px; display:block; }
+  :root{--bg:#000;--neon:#00f6ff;--accent:#ff0077;--hud:#0ff;}
+  html,body{height:100%;margin:0;background:var(--bg);color:#dff; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+  canvas{display:block}
+  #container{position:relative;height:100vh;overflow:hidden}
+  #threeCanvas{position:absolute;inset:0;z-index:1}
+  #hud{position:absolute;left:12px;top:12px;z-index:30;color:var(--hud);text-shadow:0 0 8px rgba(0,255,255,0.12);font-size:14px}
+  #hud .row{margin-bottom:6px}
+  #controls{position:absolute;right:12px;top:12px;z-index:30;background:rgba(0,0,0,0.6);padding:10px;border-radius:8px;border:1px solid rgba(0,255,255,0.06);width:260px}
+  #controls input,#controls button{width:100%;box-sizing:border-box;margin:6px 0;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:#071018;color:var(--hud)}
+  #minimapWrap{position:absolute;right:12px;bottom:12px;z-index:35;width:360px;height:260px;background:rgba(0,0,0,0.75);padding:10px;border-radius:8px;border:1px solid rgba(0,255,255,0.06);box-sizing:border-box}
+  #minimapTitle{color:var(--hud);font-weight:700;font-size:12px;text-align:center;margin-bottom:6px}
+  #minimapCanvas{width:100%;height:100%;background:#071018;border-radius:6px;display:block}
+  #startOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;background:linear-gradient(180deg,rgba(0,0,0,0.85),rgba(0,0,0,0.6))}
+  #startCard{width:520px;max-width:92%;background:linear-gradient(180deg,#041018,#071426);padding:22px;border-radius:12px;border:1px solid rgba(0,255,255,0.06);text-align:center;color:#dff}
+  #startCard h1{font-size:34px;margin:0 0 8px;background:linear-gradient(90deg,#00f6ff,#ff00d4);-webkit-background-clip:text;color:transparent;font-weight:900}
+  #startCard p{margin:0 0 12px;color:#bfe;opacity:0.9}
+  #loadingBar{width:100%;height:8px;background:#001;border-radius:6px;overflow:hidden;margin-top:10px}
+  #loadingFill{height:100%;width:0;background:linear-gradient(90deg,#00f6ff,#ff00d4);transition:width .25s linear}
+  #log{position:absolute;left:12px;bottom:12px;z-index:30;width:48%;max-width:720px;background:rgba(0,0,0,0.6);padding:10px;border-radius:8px;border:1px solid rgba(0,255,255,0.06);font-size:13px;height:180px;overflow:auto}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .red{background:#ff4d4d}.blue{background:#4dd0ff}.green{background:#7dff7d}.yellow{background:#ffd24d}
+  #winnerBanner{position:absolute;left:50%;top:18%;transform:translateX(-50%);z-index:70;background:linear-gradient(90deg,#0008,#0008);padding:18px 28px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);display:none}
+  #winnerBanner h2{margin:0;color:#fff}
+  small{color:#9fd}
 </style>
 </head>
 <body>
-<div id="hud">
-  <div class="line"><strong>East Asia Tech Circuit Tokyo</strong></div>
-  <div class="line">Speed: <span id="speed">0</span> km/h</div>
-  <div class="line">Lap: <span id="lap">1</span> / 3</div>
-  <div class="line">Time: <span id="time">0.0</span>s</div>
-  <div class="line" style="font-size:12px; opacity:0.9">Upload your circuit map below to use as the minimap background</div>
-</div>
+<div id="container">
+  <canvas id="threeCanvas"></canvas>
 
-<div id="controls">
-  <button id="toggleDayNight">Toggle Day / Night</button>
-  <button id="toggleRain">Toggle Rain</button>
-  <label id="uploaderLabel" for="mapUploader">Minimap image (PNG/JPG)</label>
-  <input id="mapUploader" type="file" accept="image/*" />
-  <button id="resetMap">Reset Minimap</button>
-</div>
+  <div id="hud">
+    <div class="row"><strong>East Asia Tech Circuit — Simulated Race</strong></div>
+    <div class="row">Start Time: <span id="startTime">—</span></div>
+    <div class="row">Elapsed: <span id="elapsed">0.0</span>s</div>
+    <div class="row">Checkpoints: <span id="cpCount">18</span> &nbsp; Laps: <span id="laps">1</span></div>
+    <div class="row">Positions:
+      <div id="positions" style="margin-top:6px">
+        <div><span class="dot red"></span>Red: <span id="posRed">—</span></div>
+        <div><span class="dot blue"></span>Blue: <span id="posBlue">—</span></div>
+        <div><span class="dot green"></span>Green: <span id="posGreen">—</span></div>
+        <div><span class="dot yellow"></span>Yellow: <span id="posYellow">—</span></div>
+      </div>
+    </div>
+  </div>
 
-<div id="minimapWrap">
-  <div id="minimapTitle">CIRCUIT MAP</div>
-  <canvas id="minimapCanvas" width="320" height="200"></canvas>
-</div>
+  <div id="controls">
+    <input id="playerNameInput" placeholder="Enter player name (optional)" />
+    <label style="font-size:12px;color:#9fd;margin-top:6px">Upload map image (optional)</label>
+    <input id="mapUploader" type="file" accept="image/*" />
+    <button id="startSimBtn">Start Simulation</button>
+    <button id="resetBtn">Reset</button>
+    <small>Simulation runs automatically; player is spectator.</small>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+  <div id="minimapWrap">
+    <div id="minimapTitle">CIRCUIT MAP</div>
+    <canvas id="minimapCanvas" width="320" height="200"></canvas>
+  </div>
+
+  <div id="log" aria-live="polite"></div>
+
+  <div id="winnerBanner"><h2 id="winnerText"></h2></div>
+
+  <!-- Start overlay (optional cinematic) -->
+  <div id="startOverlay" style="display:none">
+    <div id="startCard">
+      <h1>READY TO WATCH?</h1>
+      <p>Upload the map if you want the minimap background to match your image. Enter a name and press Start to begin the simulated race.</p>
+      <input id="overlayName" placeholder="Enter player name (optional)" />
+      <div id="loadingBar"><div id="loadingFill"></div></div>
+      <div style="margin-top:8px"><small id="loadingText">Preparing scene…</small></div>
+      <button id="overlayStart" disabled style="margin-top:12px">START</button>
+    </div>
+  </div>
+</div>
 
 <script>
-/* ===============================
-   Pole Position–style Cyber‑Tokyo
-   with image-based minimap overlay
-   =============================== */
+/* ============================================================
+  Simulated Race HTML
+  - Four cars: Red, Blue, Green, Yellow
+  - 18 checkpoints + finish line (finish after 1 lap by default)
+  - Optional map image upload for minimap background
+  - Start time, elapsed time, event log, and winner banner
+  - Player is spectator; simulation runs automatically once started
+  ============================================================ */
 
-/* ---------- Three.js scene ---------- */
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 3000);
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-document.body.appendChild(renderer.domElement);
+/* ---------- Config ---------- */
+const CHECKPOINT_COUNT = 18;
+const LAPS = 1; // number of laps to complete
+const CAR_COLORS = ['red','blue','green','yellow'];
+const CAR_NAMES = ['Red','Blue','Green','Yellow'];
+const SIM_TICK = 1000/60; // 60fps simulation step for smooth progress
 
-/* Sky texture helper */
-function makeSkyTexture(night=true){
-  const size = 1024;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const g = ctx.createLinearGradient(0,0,0,size);
-  if (night) { g.addColorStop(0,'#020015'); g.addColorStop(0.5,'#050029'); g.addColorStop(1,'#040010'); }
-  else { g.addColorStop(0,'#0a1633'); g.addColorStop(0.5,'#142b5c'); g.addColorStop(1,'#0a101e'); }
-  ctx.fillStyle = g; ctx.fillRect(0,0,size,size);
-  ctx.strokeStyle = 'rgba(0,255,255,0.02)';
-  for(let i=0;i<40;i++){ ctx.beginPath(); ctx.moveTo(0, i*(size/40)); ctx.lineTo(size, i*(size/40)+(i%2?6:-6)); ctx.stroke(); }
-  return new THREE.CanvasTexture(canvas);
+/* ---------- Minimal 2D track representation (spline-like) ----------
+   We use a closed CatmullRom-like set of 3D points (x,z) to represent the circuit.
+   These points approximate the route shape used in prior scripts.
+   The simulation uses normalized progress [0..1) along the path.
+*/
+const TRACK_POINTS = [
+  {x:0, z:260},
+  {x:90, z:180},
+  {x:140, z:100},
+  {x:160, z:20},
+  {x:140, z:-60},
+  {x:80, z:-140},
+  {x:0, z:-220},
+  {x:-80, z:-140},
+  {x:-140, z:-60},
+  {x:-160, z:20},
+  {x:-140, z:100},
+  {x:-90, z:180}
+];
+
+// Utility: Catmull-Rom interpolation for closed curve
+function catmullRom(p0,p1,p2,p3,t){
+  const t2 = t*t, t3 = t2*t;
+  const a = -0.5*p0 + 1.5*p1 - 1.5*p2 + 0.5*p3;
+  const b = p0 - 2.5*p1 + 2*p2 - 0.5*p3;
+  const c = -0.5*p0 + 0.5*p2;
+  const d = p1;
+  return a*t3 + b*t2 + c*t + d;
 }
-let isNight = true;
-scene.background = makeSkyTexture(isNight);
-
-/* Lighting */
-const hemi = new THREE.HemisphereLight(0x336699,0x000000,0.5);
-scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xffffff,0.4);
-sun.position.set(80,120,40);
-scene.add(sun);
-
-/* Ground */
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000,2000), new THREE.MeshStandardMaterial({ color:0x050509, roughness:1 }));
-ground.rotation.x = -Math.PI/2;
-scene.add(ground);
-
-/* ---------- Track spline (use the real circuit points below) ---------- */
-/* Replace these points with the precise circuit coordinates if available.
-   For now we use a spline that approximates a loop similar to the uploaded map. */
-const TRACK_CURVE = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(  0, 0, 220),
-  new THREE.Vector3( 90, 0, 140),
-  new THREE.Vector3(140, 0,  40),
-  new THREE.Vector3(120, 0,-60),
-  new THREE.Vector3( 40, 0,-160),
-  new THREE.Vector3(-40, 0,-160),
-  new THREE.Vector3(-120, 0,-60),
-  new THREE.Vector3(-140, 0, 40),
-  new THREE.Vector3(-90, 0, 140)
-], true);
-
-/* Road: flat extruded ribbon, rotated to lie on XZ plane */
-function makeRoadGeometry(curve){
-  const shape = new THREE.Shape();
-  const halfWidth = 12;
-  shape.moveTo(-halfWidth,0);
-  shape.lineTo(-halfWidth,0.2);
-  shape.lineTo(halfWidth,0.2);
-  shape.lineTo(halfWidth,0);
-  shape.lineTo(-halfWidth,0);
-  const extrude = new THREE.ExtrudeGeometry(shape, { steps:600, extrudePath:curve, bevelEnabled:false });
-  extrude.rotateX(-Math.PI/2);
-  return extrude;
+function sampleTrack(u){
+  // u in [0,1)
+  const n = TRACK_POINTS.length;
+  const totalSeg = n;
+  const t = u * totalSeg;
+  const seg = Math.floor(t) % n;
+  const local = t - Math.floor(t);
+  const i0 = (seg - 1 + n) % n;
+  const i1 = seg;
+  const i2 = (seg + 1) % n;
+  const i3 = (seg + 2) % n;
+  const p0 = TRACK_POINTS[i0], p1 = TRACK_POINTS[i1], p2 = TRACK_POINTS[i2], p3 = TRACK_POINTS[i3];
+  const x = catmullRom(p0.x,p1.x,p2.x,p3.x,local);
+  const z = catmullRom(p0.z,p1.z,p2.z,p3.z,local);
+  return {x,z};
 }
-const roadGeo = makeRoadGeometry(TRACK_CURVE);
-const roadMat = new THREE.MeshStandardMaterial({ color:0x111118, roughness:0.4, metalness:0.2 });
-const roadMesh = new THREE.Mesh(roadGeo, roadMat);
-roadMesh.receiveShadow = true;
-scene.add(roadMesh);
 
-/* Neon curbs */
-const curbGroup = new THREE.Group();
-const curbGeo = new THREE.BoxGeometry(1.2,0.4,2.8);
-const leftMat = new THREE.MeshBasicMaterial({ color:0xff0077 });
-const rightMat = new THREE.MeshBasicMaterial({ color:0x00ffff });
-const curbSteps = 160;
-for(let i=0;i<curbSteps;i++){
-  const t = i/curbSteps;
-  const p = TRACK_CURVE.getPointAt(t);
-  const tan = TRACK_CURVE.getTangentAt(t);
-  const normal = new THREE.Vector3(-tan.z,0,tan.x).normalize();
-  const angle = Math.atan2(tan.x,tan.z);
-  const left = new THREE.Mesh(curbGeo,leftMat);
-  left.position.copy(p).addScaledVector(normal,13.5); left.position.y = 0.15; left.rotation.y = angle;
-  curbGroup.add(left);
-  const right = new THREE.Mesh(curbGeo,rightMat);
-  right.position.copy(p).addScaledVector(normal,-13.5); right.position.y = 0.15; right.rotation.y = angle;
-  curbGroup.add(right);
+/* Precompute checkpoint positions (u values and world coords) */
+const checkpoints = [];
+for(let i=0;i<CHECKPOINT_COUNT;i++){
+  const u = i / CHECKPOINT_COUNT;
+  const pos = sampleTrack(u);
+  checkpoints.push({u,pos,index:i});
 }
-scene.add(curbGroup);
 
-/* Skyline silhouettes (kept distant and subtle) */
-const skyline = new THREE.Group();
-function makeBuilding(x,z,w,d,h,color){
-  const geo = new THREE.BoxGeometry(w,h,d);
-  const mat = new THREE.MeshBasicMaterial({ color:color, transparent:true, opacity:0.18 });
-  const b = new THREE.Mesh(geo,mat);
-  b.position.set(x,h/2-1,z);
-  const edges = new THREE.EdgesGeometry(geo);
-  const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color:color, transparent:true, opacity:0.9 }));
-  wire.position.copy(b.position);
-  skyline.add(b); skyline.add(wire);
-}
-for(let i=0;i<16;i++){
-  const side = (i<8)?1:-1;
-  const idx = i%8;
-  const x = side*260 + (Math.random()*30-15);
-  const z = -300 + idx*60 + (Math.random()*20-10);
-  makeBuilding(x,z,20+Math.random()*30,20+Math.random()*30,60+Math.random()*120, (Math.random()>0.5)?0x00ffff:0xff00cc);
-}
-scene.add(skyline);
+/* ---------- Simulation state ---------- */
+const cars = CAR_NAMES.map((name, idx) => ({
+  name,
+  color: CAR_COLORS[idx],
+  progress: idx * 0.02, // staggered start positions slightly
+  speedStat: 0.18 + Math.random()*0.06, // base speed factor
+  consistency: 0.9 - Math.random()*0.2, // affects variability
+  checkpointsPassed: 0,
+  lap: 0,
+  finished: false,
+  finishTime: null
+}));
 
-/* Decorative gate */
-const gate = new THREE.Mesh(new THREE.TorusGeometry(40,0.6,8,64), new THREE.MeshBasicMaterial({ color:0x00ffff, transparent:true, opacity:0.8 }));
-gate.rotation.x = Math.PI/2; gate.position.set(0,10,-320);
-scene.add(gate);
+let simRunning = false;
+let simStartTime = null;
+let simElapsed = 0;
+let simInterval = null;
+let winner = null;
 
-/* Rain (optional) */
-const rainCount = 1200;
-const rainPositions = new Float32Array(rainCount*3);
-for(let i=0;i<rainCount;i++){
-  rainPositions[i*3+0] = (Math.random()-0.5)*600;
-  rainPositions[i*3+1] = 20 + Math.random()*120;
-  rainPositions[i*3+2] = -400 + Math.random()*400;
-}
-const rainGeo = new THREE.BufferGeometry();
-rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions,3).setUsage(THREE.DynamicDrawUsage));
-const rainMat = new THREE.PointsMaterial({ color:0x00ffff, size:0.25, transparent:true, opacity:0.7, depthWrite:false });
-const rainPoints = new THREE.Points(rainGeo, rainMat);
-rainPoints.visible = false;
-scene.add(rainPoints);
-
-/* ---------- Player (spline-locked) ---------- */
-const car = new THREE.Group();
-const carBody = new THREE.Mesh(new THREE.BoxGeometry(3.2,1.0,6), new THREE.MeshStandardMaterial({ color:0x001833, metalness:0.7, roughness:0.2 }));
-carBody.position.y = 1.0; car.add(carBody);
-const neonPanel = new THREE.Mesh(new THREE.BoxGeometry(3.4,0.12,6.2), new THREE.MeshBasicMaterial({ color:0x00ffff, transparent:true, opacity:0.9 }));
-neonPanel.position.y = 1.45; car.add(neonPanel);
-const rear = new THREE.Mesh(new THREE.BoxGeometry(3.2,0.3,0.3), new THREE.MeshBasicMaterial({ color:0xff0077 }));
-rear.position.set(0,0.9,3.1); car.add(rear);
-scene.add(car);
-
-/* Trail */
-const trailMax = 48;
-const trailPositions = new Float32Array(trailMax*3);
-for(let i=0;i<trailMax*3;i++) trailPositions[i]=car.position.x;
-const trailGeo = new THREE.BufferGeometry();
-trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions,3));
-const trailMat = new THREE.LineBasicMaterial({ color:0x00ffff, transparent:true, opacity:0.75 });
-const trailLine = new THREE.Line(trailGeo, trailMat);
-scene.add(trailLine);
-
-/* Camera */
-camera.position.set(0,6,-16);
-camera.lookAt(new THREE.Vector3(0,2,0));
-
-/* Input */
-const keys = {};
-window.addEventListener('keydown', e => keys[e.code] = true);
-window.addEventListener('keyup', e => keys[e.code] = false);
-
-/* Pole Position style state */
-let carProgress = 0;       // 0..1 along spline
-let lateralOffset = 0;     // -1..1
-let speed = 0;
-let lap = 1;
-let totalTime = 0;
-
-/* HUD elements */
-const speedEl = document.getElementById('speed');
-const lapEl = document.getElementById('lap');
-const timeEl = document.getElementById('time');
-
-/* Toggles */
-document.getElementById('toggleDayNight').onclick = () => {
-  isNight = !isNight;
-  scene.background = makeSkyTexture(isNight);
-  hemi.intensity = isNight?0.5:0.8;
-  sun.intensity = isNight?0.3:0.6;
-};
-document.getElementById('toggleRain').onclick = () => {
-  rainPoints.visible = !rainPoints.visible;
-};
-
-/* ---------- Minimap: image uploader + canvas overlay ---------- */
-const uploader = document.getElementById('mapUploader');
-const resetMapBtn = document.getElementById('resetMap');
+/* ---------- DOM references ---------- */
+const startBtn = document.getElementById('startSimBtn');
+const resetBtn = document.getElementById('resetBtn');
+const playerNameInput = document.getElementById('playerNameInput');
+const logEl = document.getElementById('log');
+const startTimeEl = document.getElementById('startTime');
+const elapsedEl = document.getElementById('elapsed');
+const posRed = document.getElementById('posRed');
+const posBlue = document.getElementById('posBlue');
+const posGreen = document.getElementById('posGreen');
+const posYellow = document.getElementById('posYellow');
 const minimapCanvas = document.getElementById('minimapCanvas');
-const ctx = minimapCanvas.getContext('2d');
+const minimapCtx = minimapCanvas.getContext('2d');
+const mapUploader = document.getElementById('mapUploader');
+const winnerBanner = document.getElementById('winnerBanner');
+const winnerText = document.getElementById('winnerText');
+
+/* Overlay elements (optional cinematic) */
+const overlay = document.getElementById('startOverlay');
+const overlayStart = document.getElementById('overlayStart');
+const overlayName = document.getElementById('overlayName');
+const loadingFill = document.getElementById('loadingFill');
+const loadingText = document.getElementById('loadingText');
+const loadingPercent = document.getElementById('loadingPercent');
+
+/* ---------- Minimap image handling ---------- */
 let minimapImage = null;
-let minimapScale = 1;
-let minimapOffset = { x:0, y:0 };
-
-/* Precompute curve bounds for mapping 3D -> 2D */
-const curveSamples = TRACK_CURVE.getSpacedPoints(300);
-let bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
-curveSamples.forEach(p => { bounds.minX = Math.min(bounds.minX, p.x); bounds.maxX = Math.max(bounds.maxX, p.x); bounds.minZ = Math.min(bounds.minZ, p.z); bounds.maxZ = Math.max(bounds.maxZ, p.z); });
-
-function drawMinimapBackground(){
-  // clear
-  ctx.clearRect(0,0,minimapCanvas.width,minimapCanvas.height);
-  // draw image if present
-  if (minimapImage){
-    // fit image into canvas while preserving aspect
-    const cw = minimapCanvas.width, ch = minimapCanvas.height;
-    const iw = minimapImage.width, ih = minimapImage.height;
-    const scale = Math.min(cw/iw, ch/ih);
-    minimapScale = scale;
-    const iwScaled = iw*scale, ihScaled = ih*scale;
-    minimapOffset.x = (cw - iwScaled)/2;
-    minimapOffset.y = (ch - ihScaled)/2;
-    ctx.drawImage(minimapImage, minimapOffset.x, minimapOffset.y, iwScaled, ihScaled);
-  } else {
-    // fallback: draw a subtle grid and horizon
-    ctx.fillStyle = '#071018';
-    ctx.fillRect(0,0,minimapCanvas.width,minimapCanvas.height);
-    ctx.strokeStyle = 'rgba(0,255,255,0.06)';
-    for(let y=10;y<minimapCanvas.height;y+=10){
-      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(minimapCanvas.width,y); ctx.stroke();
-    }
-  }
-}
-
-/* Draw the track path projected onto the minimap canvas */
-function drawTrackOnMinimap(){
-  // map 3D X,Z to canvas coordinates
-  const cw = minimapCanvas.width, ch = minimapCanvas.height;
-  // compute scale to fit curve bounds into canvas area (respecting image transform if present)
-  let sX = (cw - 20) / (bounds.maxX - bounds.minX || 1);
-  let sY = (ch - 20) / (bounds.maxZ - bounds.minZ || 1);
-  // if an image is present, use image transform to align path over image
-  if (minimapImage){
-    // map world bounds to image pixel area
-    const iw = minimapImage.width * minimapScale;
-    const ih = minimapImage.height * minimapScale;
-    const px = minimapOffset.x, py = minimapOffset.y;
-    sX = iw / (bounds.maxX - bounds.minX || 1);
-    sY = ih / (bounds.maxZ - bounds.minZ || 1);
-    // use same scale for both axes to preserve aspect
-    const s = Math.min(sX, sY);
-    sX = sY = s;
-    // center offset to align world center with image center
-    const worldCenterX = (bounds.minX + bounds.maxX)/2;
-    const worldCenterZ = (bounds.minZ + bounds.maxZ)/2;
-    const imgCenterX = px + iw/2;
-    const imgCenterY = py + ih/2;
-    // mapping function
-    const mapPoint = (p) => {
-      const x = imgCenterX + (p.x - worldCenterX) * s;
-      const y = imgCenterY + (p.z - worldCenterZ) * s;
-      return { x, y };
-    };
-    // draw path
-    const pts = TRACK_CURVE.getSpacedPoints(200);
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = '#222';
-    ctx.beginPath();
-    pts.forEach((p,i) => { const m = mapPoint(p); if (i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
-    ctx.stroke();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#00f6ff';
-    ctx.beginPath();
-    pts.forEach((p,i) => { const m = mapPoint(p); if (i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
-    ctx.stroke();
-    return mapPoint;
-  } else {
-    // no image: map to canvas area with padding
-    const pad = 10;
-    const s = Math.min(sX, sY);
-    const ox = pad - bounds.minX * s;
-    const oy = pad - bounds.minZ * s;
-    const mapPoint = (p) => ({ x: p.x * s + ox, y: p.z * s + oy });
-    const pts = TRACK_CURVE.getSpacedPoints(200);
-    ctx.lineWidth = 6; ctx.strokeStyle = '#222'; ctx.beginPath();
-    pts.forEach((p,i) => { const m = mapPoint(p); if (i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
-    ctx.stroke();
-    ctx.lineWidth = 3; ctx.strokeStyle = '#00f6ff'; ctx.beginPath();
-    pts.forEach((p,i) => { const m = mapPoint(p); if (i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
-    ctx.stroke();
-    return mapPoint;
-  }
-}
-
-/* Draw car dot on minimap using mapping function */
-function drawCarDot(mapPointFunc, progress){
-  const p = TRACK_CURVE.getPointAt(progress);
-  const m = mapPointFunc(p);
-  // small halo
-  ctx.beginPath();
-  ctx.fillStyle = 'rgba(255,0,85,0.18)';
-  ctx.arc(m.x, m.y, 10, 0, Math.PI*2);
-  ctx.fill();
-  // dot
-  ctx.beginPath();
-  ctx.fillStyle = '#ff0055';
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 1.5;
-  ctx.arc(m.x, m.y, 5, 0, Math.PI*2);
-  ctx.fill(); ctx.stroke();
-}
-
-/* Handle image upload */
-uploader.addEventListener('change', (ev) => {
+let minimapLoaded = false;
+mapUploader.addEventListener('change', (ev) => {
   const f = ev.target.files && ev.target.files[0];
   if (!f) return;
   const img = new Image();
   img.onload = () => {
     minimapImage = img;
-    drawMinimapBackground();
-    const mapPointFunc = drawTrackOnMinimap();
-    drawCarDot(mapPointFunc, carProgress);
+    minimapLoaded = true;
+    drawMinimap();
+    log(`Minimap image loaded from upload.`);
+    // If overlay waiting, enable start
+    overlayStart.disabled = false;
+    startBtn.disabled = false;
   };
-  img.onerror = () => { minimapImage = null; drawMinimapBackground(); drawTrackOnMinimap(); };
+  img.onerror = () => {
+    minimapImage = null;
+    minimapLoaded = false;
+    drawMinimap();
+    log('Uploaded image failed to load; using default minimap.');
+    overlayStart.disabled = false;
+    startBtn.disabled = false;
+  };
   img.src = URL.createObjectURL(f);
 });
 
-/* Reset minimap to default (no image) */
-resetMapBtn.addEventListener('click', () => {
-  minimapImage = null;
-  uploader.value = '';
-  drawMinimapBackground();
-  drawTrackOnMinimap();
-});
-
-/* Initial minimap draw */
-drawMinimapBackground();
-const initialMapPoint = drawTrackOnMinimap();
-drawCarDot(initialMapPoint, 0);
-
-/* ---------- Car transform helper (spline-locked) ---------- */
-function updateCarTransform(){
-  const p = TRACK_CURVE.getPointAt(carProgress % 1);
-  const t = TRACK_CURVE.getTangentAt(carProgress % 1).normalize();
-  const normal = new THREE.Vector3(-t.z,0,t.x).normalize();
-  const sideways = normal.clone().multiplyScalar(lateralOffset*10);
-  const carPos = p.clone().add(sideways);
-  carPos.y = 1.0;
-  car.position.copy(carPos);
-  const angle = Math.atan2(t.x,t.z);
-  car.rotation.y = angle;
-  // camera behind car
-  const camOffset = t.clone().multiplyScalar(-12).add(new THREE.Vector3(0,4,0));
-  camera.position.copy(carPos).add(camOffset);
-  const lookAhead = p.clone().add(t.clone().multiplyScalar(20)); lookAhead.y = 2;
-  camera.lookAt(lookAhead);
-}
-
-/* ---------- Animation loop ---------- */
-let lastTime = performance.now();
-function animate(){
-  const now = performance.now();
-  const dt = Math.min(0.05,(now-lastTime)/1000);
-  lastTime = now;
-  totalTime += dt;
-
-  // Input
-  const accel = keys['ArrowUp'] || keys['KeyW'];
-  const brake = keys['ArrowDown'] || keys['KeyS'];
-  const left = keys['ArrowLeft'] || keys['KeyA'];
-  const right = keys['ArrowRight'] || keys['KeyD'];
-
-  // Speed (arcade feel)
-  const maxSpeed = 260;
-  if (accel) speed += 140*dt; else speed -= 80*dt;
-  if (brake) speed -= 200*dt;
-  speed = Math.max(0, Math.min(maxSpeed, speed));
-
-  // Steering (lateral offset)
-  const steerStrength = 0.9;
-  if (speed>10){
-    if (left) lateralOffset -= steerStrength*dt;
-    if (right) lateralOffset += steerStrength*dt;
-  }
-  lateralOffset = Math.max(-1, Math.min(1, lateralOffset));
-
-  // Advance progress
-  const progressSpeed = speed/9000;
-  carProgress += progressSpeed * dt * 60; // tuned multiplier for lap length
-  if (carProgress >= 1){
-    carProgress -= 1;
-    lap = Math.min(3, lap+1);
-  }
-
-  // Update transforms
-  updateCarTransform();
-
-  // Trail update
-  const posAttr = trailGeo.attributes.position;
-  for(let i=trailMax-1;i>0;i--){
-    trailPositions[i*3+0] = trailPositions[(i-1)*3+0];
-    trailPositions[i*3+1] = trailPositions[(i-1)*3+1];
-    trailPositions[i*3+2] = trailPositions[(i-1)*3+2];
-  }
-  trailPositions[0] = car.position.x; trailPositions[1] = car.position.y-0.4; trailPositions[2] = car.position.z;
-  posAttr.needsUpdate = true;
-
-  // Rain update
-  if (rainPoints.visible){
-    const arr = rainGeo.attributes.position.array;
-    for(let i=0;i<rainCount;i++){
-      arr[i*3+1] -= 120*dt;
-      if (arr[i*3+1] < 5) arr[i*3+1] = 140;
-    }
-    rainGeo.attributes.position.needsUpdate = true;
-    lateralOffset *= (1 - 0.08*dt);
-  }
-
-  // HUD
-  speedEl.textContent = Math.round(speed).toString();
-  lapEl.textContent = lap.toString();
-  timeEl.textContent = totalTime.toFixed(1);
-
-  // Redraw minimap: background -> track -> car
-  drawMinimapBackground();
-  const mapPointFunc = drawTrackOnMinimap();
-  drawCarDot(mapPointFunc, carProgress % 1);
-
-  renderer.render(scene, camera);
-  requestAnimationFrame(animate);
-}
-animate();
-
-/* Resize */
-window.addEventListener('resize', () => {
-  camera.aspect = innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-  // resize minimap canvas to keep crispness
-  const wrap = document.getElementById('minimapWrap');
-  const rect = wrap.getBoundingClientRect();
-  minimapCanvas.width = Math.max(200, Math.floor(rect.width - 16));
-  minimapCanvas.height = Math.max(140, Math.floor(rect.height - 48));
-  drawMinimapBackground();
-  drawTrackOnMinimap();
-});
-
-/* Initial canvas sizing */
-(function initMinimapSize(){
-  const wrap = document.getElementById('minimapWrap');
-  const rect = wrap.getBoundingClientRect();
-  minimapCanvas.width = Math.max(200, Math.floor(rect.width - 16));
-  minimapCanvas.height = Math.max(140, Math.floor(rect.height - 48));
-  drawMinimapBackground();
-  drawTrackOnMinimap();
+/* Try to load fallback image if present (non-blocking) */
+(function tryFallback(){
+  const img = new Image();
+  img.onload = () => { if (!minimapLoaded) { minimapImage = img; minimapLoaded = true; drawMinimap(); } };
+  img.onerror = ()=>{};
+  img.src = 'assets/track-map.jpg';
 })();
+
+/* ---------- Drawing minimap and track ---------- */
+function drawMinimap(){
+  const cw = minimapCanvas.width, ch = minimapCanvas.height;
+  minimapCtx.clearRect(0,0,cw,ch);
+  if (minimapLoaded && minimapImage){
+    // fit image
+    const iw = minimapImage.width, ih = minimapImage.height;
+    const scale = Math.min(cw/iw, ch/ih);
+    const ox = (cw - iw*scale)/2, oy = (ch - ih*scale)/2;
+    minimapCtx.drawImage(minimapImage, ox, oy, iw*scale, ih*scale);
+    // compute mapping from world coords to image pixels
+    drawTrackOverlay(ox,oy,scale);
+  } else {
+    // fallback grid background
+    minimapCtx.fillStyle = '#071018';
+    minimapCtx.fillRect(0,0,cw,ch);
+    minimapCtx.strokeStyle = 'rgba(0,255,255,0.06)';
+    for(let y=10;y<ch;y+=10){ minimapCtx.beginPath(); minimapCtx.moveTo(0,y); minimapCtx.lineTo(cw,y); minimapCtx.stroke(); }
+    drawTrackOverlay(0,0,Math.min(cw/600,ch/600)); // arbitrary scale to fit
+  }
+}
+
+function computeBounds(){
+  // compute bounds of track points
+  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+  for(const p of TRACK_POINTS){ minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minZ=Math.min(minZ,p.z); maxZ=Math.max(maxZ,p.z); }
+  return {minX,maxX,minZ,maxZ};
+}
+const bounds = computeBounds();
+
+function drawTrackOverlay(ox,oy,scale){
+  // Map world coords to minimap pixels centered in image area
+  const cw = minimapCanvas.width, ch = minimapCanvas.height;
+  const worldCenterX = (bounds.minX + bounds.maxX)/2;
+  const worldCenterZ = (bounds.minZ + bounds.maxZ)/2;
+  // choose s so track fits image area
+  const worldW = bounds.maxX - bounds.minX || 1;
+  const worldH = bounds.maxZ - bounds.minZ || 1;
+  const imgW = (minimapLoaded && minimapImage) ? minimapImage.width*scale : cw;
+  const imgH = (minimapLoaded && minimapImage) ? minimapImage.height*scale : ch;
+  const sX = imgW / worldW;
+  const sY = imgH / worldH;
+  const s = Math.min(sX, sY) * 0.95;
+  const imgCenterX = ox + imgW/2;
+  const imgCenterY = oy + imgH/2;
+
+  function map(p){
+    return { x: imgCenterX + (p.x - worldCenterX) * s, y: imgCenterY + (p.z - worldCenterZ) * s };
+  }
+
+  // draw track path
+  minimapCtx.lineWidth = 6; minimapCtx.strokeStyle = '#222'; minimapCtx.beginPath();
+  const steps = 300;
+  for(let i=0;i<=steps;i++){
+    const u = i/steps;
+    const pt = sampleTrack(u);
+    const m = map(pt);
+    if(i===0) minimapCtx.moveTo(m.x,m.y); else minimapCtx.lineTo(m.x,m.y);
+  }
+  minimapCtx.stroke();
+  minimapCtx.lineWidth = 3; minimapCtx.strokeStyle = '#00f6ff'; minimapCtx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const u = i/steps;
+    const pt = sampleTrack(u);
+    const m = map(pt);
+    if(i===0) minimapCtx.moveTo(m.x,m.y); else minimapCtx.lineTo(m.x,m.y);
+  }
+  minimapCtx.stroke();
+
+  // draw checkpoints
+  for(const cp of checkpoints){
+    const m = map(cp.pos);
+    minimapCtx.beginPath();
+    minimapCtx.fillStyle = 'rgba(0,255,0,0.12)';
+    minimapCtx.arc(m.x,m.y,8,0,Math.PI*2);
+    minimapCtx.fill();
+    minimapCtx.beginPath();
+    minimapCtx.strokeStyle = '#7dff7d';
+    minimapCtx.lineWidth = 1.5;
+    minimapCtx.arc(m.x,m.y,8,0,Math.PI*2);
+    minimapCtx.stroke();
+  }
+
+  // draw car dots
+  for(const c of cars){
+    const pt = sampleTrack(c.progress % 1);
+    const m = map(pt);
+    minimapCtx.beginPath();
+    minimapCtx.fillStyle = c.color === 'red' ? '#ff4d4d' : c.color === 'blue' ? '#4dd0ff' : c.color === 'green' ? '#7dff7d' : '#ffd24d';
+    minimapCtx.arc(m.x,m.y,6,0,Math.PI*2);
+    minimapCtx.fill();
+    minimapCtx.beginPath();
+    minimapCtx.strokeStyle = '#fff';
+    minimapCtx.lineWidth = 1;
+    minimapCtx.arc(m.x,m.y,6,0,Math.PI*2);
+    minimapCtx.stroke();
+  }
+}
+
+/* ---------- Logging helper ---------- */
+function log(msg){
+  const time = (simElapsed/1000).toFixed(1);
+  const line = document.createElement('div');
+  line.textContent = `[${time}s] ${msg}`;
+  logEl.prepend(line);
+}
+
+/* ---------- Race mechanics ---------- */
+function resetSimulation(){
+  // reset cars
+  for(let i=0;i<cars.length;i++){
+    cars[i].progress = i * 0.02;
+    cars[i].checkpointsPassed = 0;
+    cars[i].lap = 0;
+    cars[i].finished = false;
+    cars[i].finishTime = null;
+  }
+  simRunning = false;
+  simStartTime = null;
+  simElapsed = 0;
+  winner = null;
+  startTimeEl.textContent = '—';
+  elapsedEl.textContent = '0.0';
+  logEl.innerHTML = '';
+  winnerBanner.style.display = 'none';
+  drawMinimap();
+  updatePositionsUI();
+  startBtn.disabled = false;
+  overlayStart.disabled = false;
+  loadingFill.style.width = '0%';
+  loadingText.textContent = 'Waiting for image or using default track...';
+}
+
+function updatePositionsUI(){
+  // sort by progress (descending)
+  const sorted = [...cars].sort((a,b)=> (b.lap + b.progress) - (a.lap + a.progress));
+  // map to positions
+  const posMap = {};
+  sorted.forEach((c,i)=> posMap[c.name] = i+1);
+  posRed.textContent = posMap['Red'];
+  posBlue.textContent = posMap['Blue'];
+  posGreen.textContent = posMap['Green'];
+  posYellow.textContent = posMap['Yellow'];
+}
+
+/* Determine if car crosses a checkpoint between previous and current progress */
+function checkCheckpointCrossing(car, prevProgress, newProgress){
+  // convert to absolute u in [0,1) for current lap
+  // handle wrap-around
+  const passed = [];
+  for(const cp of checkpoints){
+    const u = cp.u;
+    // normalize prev and new to [0,1) range
+    let a = prevProgress % 1; if (a<0) a+=1;
+    let b = newProgress % 1; if (b<0) b+=1;
+    // if no wrap
+    if (b >= a){
+      if (u > a && u <= b) passed.push(cp.index);
+    } else {
+      // wrapped around end -> start
+      if (u > a || u <= b) passed.push(cp.index);
+    }
+  }
+  return passed;
+}
+
+/* Simulate one tick (dt in seconds) */
+function simulateTick(dt){
+  if (!simRunning) return;
+  simElapsed = Date.now() - simStartTime;
+  elapsedEl.textContent = (simElapsed/1000).toFixed(1);
+
+  for(const car of cars){
+    if (car.finished) continue;
+    // base progress increment = speedStat * dt * factor
+    // add small random variation influenced by consistency
+    const variability = (1 - car.consistency) * 0.6;
+    const rnd = (Math.random() - 0.5) * variability;
+    const delta = (car.speedStat + rnd) * dt * 0.12; // tuned multiplier
+    const prev = car.progress;
+    car.progress += delta;
+    // checkpoint crossing detection
+    const passed = checkCheckpointCrossing(car, prev, car.progress);
+    if (passed.length > 0){
+      car.checkpointsPassed += passed.length;
+      log(`${car.name} passed ${passed.length} checkpoint(s). Total: ${car.checkpointsPassed}`);
+      // if passed enough checkpoints to complete a lap
+      if (car.checkpointsPassed >= CHECKPOINT_COUNT){
+        car.checkpointsPassed -= CHECKPOINT_COUNT;
+        car.lap += 1;
+        log(`${car.name} completed lap ${car.lap}`);
+        if (car.lap >= LAPS){
+          // finished
+          car.finished = true;
+          car.finishTime = simElapsed;
+          if (!winner || car.finishTime < winner.finishTime){
+            winner = car;
+            announceWinner(car);
+          }
+        }
+      }
+    }
+  }
+
+  updatePositionsUI();
+  drawMinimap();
+
+  // stop simulation when all cars finished or winner found (we stop at first winner)
+  if (winner){
+    simRunning = false;
+    log(`Winner: ${winner.name} (${winner.color.toUpperCase()}) at ${(winner.finishTime/1000).toFixed(2)}s`);
+    showWinnerBanner(winner);
+    startBtn.disabled = true;
+    overlayStart.disabled = true;
+  }
+}
+
+/* ---------- Winner UI ---------- */
+function showWinnerBanner(car){
+  winnerText.textContent = `${car.name} wins! Time: ${(car.finishTime/1000).toFixed(2)}s`;
+  winnerBanner.style.display = 'block';
+}
+
+/* ---------- Simulation control ---------- */
+function startSimulation(){
+  if (simRunning) return;
+  simRunning = true;
+  simStartTime = Date.now();
+  startTimeEl.textContent = new Date(simStartTime).toLocaleTimeString();
+  loadingFill.style.width = '100%';
+  loadingText.textContent = 'Race started';
+  // disable start controls
+  startBtn.disabled = true;
+  overlayStart.disabled = true;
+  // log initial state
+  log(`Race started. Competitors: ${cars.map(c=>c.name).join(', ')}`);
+  // run simulation loop using requestAnimationFrame for smoothness
+  let last = performance.now();
+  function loop(now){
+    if (!simRunning) return;
+    const dt = (now - last) / 1000;
+    last = now;
+    simulateTick(dt);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- UI wiring ---------- */
+startBtn.addEventListener('click', () => {
+  // copy overlay name if present
+  const name = playerNameInput.value.trim();
+  if (name) overlayName.value = name;
+  // enable start immediately
+  overlay.style.display = 'none';
+  overlayStart.disabled = true;
+  startSimulation();
+});
+
+resetBtn.addEventListener('click', () => {
+  resetSimulation();
+});
+
+overlayStart.addEventListener('click', () => {
+  // copy overlay name to main input
+  const name = overlayName.value.trim();
+  if (name) playerNameInput.value = name;
+  overlay.style.display = 'none';
+  startSimulation();
+});
+
+/* If nothing else, show overlay and enable its start after simulated load */
+overlay.style.display = 'flex';
+overlayStart.disabled = true;
+startBtn.disabled = true;
+let simulatedLoad = 0;
+const simLoadInterval = setInterval(()=>{
+  simulatedLoad += 8 + Math.random()*6;
+  loadingFill.style.width = Math.min(100, Math.floor(simulatedLoad)) + '%';
+  loadingPercent.textContent = Math.min(100, Math.floor(simulatedLoad));
+  if (simulatedLoad >= 100){
+    clearInterval(simLoadInterval);
+    overlayStart.disabled = false;
+    startBtn.disabled = false;
+    loadingText.textContent = 'Ready. Press START to begin.';
+  }
+}, 220);
+
+/* ---------- Initial draw ---------- */
+drawMinimap();
+updatePositionsUI();
+resetSimulation(); // sets initial state
+
+/* Expose a small API for debugging in console */
+window._race = {
+  cars, startSimulation, resetSimulation, drawMinimap, sampleTrack, checkpoints
+};
 </script>
 </body>
 </html>
