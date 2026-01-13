@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>East Asia Tech Circuit Tokyo – Cyber Arcade (Minimap Image)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  html,body { height:100%; margin:0; overflow:hidden; background:#000; font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  canvas { display:block; }
+  #hud { position:fixed; left:12px; top:12px; z-index:20; color:#0ff; text-shadow:0 0 8px rgba(0,255,255,0.6); font-size:14px; }
+  #hud .line { margin-bottom:4px; }
+  #controls { position:fixed; right:12px; top:12px; z-index:20; background:rgba(0,0,0,0.6); border-radius:8px; border:1px solid rgba(0,255,255,0.18); padding:8px; color:#fff; width:220px; }
+  #controls button, #controls input { width:100%; margin:6px 0; padding:8px; border-radius:6px; border:1px solid #0ff; background:#001422; color:#0ff; cursor:pointer; font-size:13px; }
+  #minimapWrap { position:fixed; right:12px; bottom:12px; z-index:25; width:320px; height:240px; background:rgba(0,0,0,0.75); border-radius:8px; padding:8px; box-sizing:border-box; border:1px solid rgba(0,255,255,0.08); }
+  #minimapTitle { color:#0ff; font-weight:700; font-size:12px; text-align:center; margin-bottom:6px; }
+  #minimapCanvas { width:100%; height:100%; display:block; border-radius:6px; background:#071018; }
+  #mapUploader { display:block; margin-top:6px; }
+  #uploaderLabel { font-size:12px; color:#9fd; margin-bottom:6px; display:block; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="line"><strong>East Asia Tech Circuit Tokyo</strong></div>
+  <div class="line">Speed: <span id="speed">0</span> km/h</div>
+  <div class="line">Lap: <span id="lap">1</span> / 3</div>
+  <div class="line">Time: <span id="time">0.0</span>s</div>
+  <div class="line" style="font-size:12px; opacity:0.9">Upload your circuit map below to use as the minimap background</div>
+</div>
+
+<div id="controls">
+  <button id="toggleDayNight">Toggle Day / Night</button>
+  <button id="toggleRain">Toggle Rain</button>
+  <label id="uploaderLabel" for="mapUploader">Minimap image (PNG/JPG)</label>
+  <input id="mapUploader" type="file" accept="image/*" />
+  <button id="resetMap">Reset Minimap</button>
+</div>
+
+<div id="minimapWrap">
+  <div id="minimapTitle">CIRCUIT MAP</div>
+  <canvas id="minimapCanvas" width="320" height="200"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+<script>
+/* ===============================
+   Pole Position–style Cyber‑Tokyo
+   with image-based minimap overlay
+   =============================== */
+
+/* ---------- Three.js scene ---------- */
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 3000);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+/* Sky texture helper */
+function makeSkyTexture(night=true){
+  const size = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createLinearGradient(0,0,0,size);
+  if (night) { g.addColorStop(0,'#020015'); g.addColorStop(0.5,'#050029'); g.addColorStop(1,'#040010'); }
+  else { g.addColorStop(0,'#0a1633'); g.addColorStop(0.5,'#142b5c'); g.addColorStop(1,'#0a101e'); }
+  ctx.fillStyle = g; ctx.fillRect(0,0,size,size);
+  ctx.strokeStyle = 'rgba(0,255,255,0.02)';
+  for(let i=0;i<40;i++){ ctx.beginPath(); ctx.moveTo(0, i*(size/40)); ctx.lineTo(size, i*(size/40)+(i%2?6:-6)); ctx.stroke(); }
+  return new THREE.CanvasTexture(canvas);
+}
+let isNight = true;
+scene.background = makeSkyTexture(isNight);
+
+/* Lighting */
+const hemi = new THREE.HemisphereLight(0x336699,0x000000,0.5);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff,0.4);
+sun.position.set(80,120,40);
+scene.add(sun);
+
+/* Ground */
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000,2000), new THREE.MeshStandardMaterial({ color:0x050509, roughness:1 }));
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
+
+/* ---------- Track spline (use the real circuit points below) ---------- */
+/* Replace these points with the precise circuit coordinates if available.
+   For now we use a spline that approximates a loop similar to the uploaded map. */
+const TRACK_CURVE = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(  0, 0, 220),
+  new THREE.Vector3( 90, 0, 140),
+  new THREE.Vector3(140, 0,  40),
+  new THREE.Vector3(120, 0,-60),
+  new THREE.Vector3( 40, 0,-160),
+  new THREE.Vector3(-40, 0,-160),
+  new THREE.Vector3(-120, 0,-60),
+  new THREE.Vector3(-140, 0, 40),
+  new THREE.Vector3(-90, 0, 140)
+], true);
+
+/* Road: flat extruded ribbon, rotated to lie on XZ plane */
+function makeRoadGeometry(curve){
+  const shape = new THREE.Shape();
+  const halfWidth = 12;
+  shape.moveTo(-halfWidth,0);
+  shape.lineTo(-halfWidth,0.2);
+  shape.lineTo(halfWidth,0.2);
+  shape.lineTo(halfWidth,0);
+  shape.lineTo(-halfWidth,0);
+  const extrude = new THREE.ExtrudeGeometry(shape, { steps:600, extrudePath:curve, bevelEnabled:false });
+  extrude.rotateX(-Math.PI/2);
+  return extrude;
+}
+const roadGeo = makeRoadGeometry(TRACK_CURVE);
+const roadMat = new THREE.MeshStandardMaterial({ color:0x111118, roughness:0.4, metalness:0.2 });
+const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+roadMesh.receiveShadow = true;
+scene.add(roadMesh);
+
+/* Neon curbs */
+const curbGroup = new THREE.Group();
+const curbGeo = new THREE.BoxGeometry(1.2,0.4,2.8);
+const leftMat = new THREE.MeshBasicMaterial({ color:0xff0077 });
+const rightMat = new THREE.MeshBasicMaterial({ color:0x00ffff });
+const curbSteps = 160;
+for(let i=0;i<curbSteps;i++){
+  const t = i/curbSteps;
+  const p = TRACK_CURVE.getPointAt(t);
+  const tan = TRACK_CURVE.getTangentAt(t);
+  const normal = new THREE.Vector3(-tan.z,0,tan.x).normalize();
+  const angle = Math.atan2(tan.x,tan.z);
+  const left = new THREE.Mesh(curbGeo,leftMat);
+  left.position.copy(p).addScaledVector(normal,13.5); left.position.y = 0.15; left.rotation.y = angle;
+  curbGroup.add(left);
+  const right = new THREE.Mesh(curbGeo,rightMat);
+  right.position.copy(p).addScaledVector(normal,-13.5); right.position.y = 0.15; right.rotation.y = angle;
+  curbGroup.add(right);
+}
+scene.add(curbGroup);
+
+/* Skyline silhouettes (kept distant and subtle) */
+const skyline = new THREE.Group();
+function makeBuilding(x,z,w,d,h,color){
+  const geo = new THREE.BoxGeometry(w,h,d);
+  const mat = new THREE.MeshBasicMaterial({ color:color, transparent:true, opacity:0.18 });
+  const b = new THREE.Mesh(geo,mat);
+  b.position.set(x,h/2-1,z);
+  const edges = new THREE.EdgesGeometry(geo);
+  const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color:color, transparent:true, opacity:0.9 }));
+  wire.position.copy(b.position);
+  skyline.add(b); skyline.add(wire);
+}
+for(let i=0;i<16;i++){
+  const side = (i<8)?1:-1;
+  const idx = i%8;
+  const x = side*260 + (Math.random()*30-15);
+  const z = -300 + idx*60 + (Math.random()*20-10);
+  makeBuilding(x,z,20+Math.random()*30,20+Math.random()*30,60+Math.random()*120, (Math.random()>0.5)?0x00ffff:0xff00cc);
+}
+scene.add(skyline);
+
+/* Decorative gate */
+const gate = new THREE.Mesh(new THREE.TorusGeometry(40,0.6,8,64), new THREE.MeshBasicMaterial({ color:0x00ffff, transparent:true, opacity:0.8 }));
+gate.rotation.x = Math.PI/2; gate.position.set(0,10,-320);
+scene.add(gate);
+
+/* Rain (optional) */
+const rainCount = 1200;
+const rainPositions = new Float32Array(rainCount*3);
+for(let i=0;i<rainCount;i++){
+  rainPositions[i*3+0] = (Math.random()-0.5)*600;
+  rainPositions[i*3+1] = 20 + Math.random()*120;
+  rainPositions[i*3+2] = -400 + Math.random()*400;
+}
+const rainGeo = new THREE.BufferGeometry();
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions,3).setUsage(THREE.DynamicDrawUsage));
+const rainMat = new THREE.PointsMaterial({ color:0x00ffff, size:0.25, transparent:true, opacity:0.7, depthWrite:false });
+const rainPoints = new THREE.Points(rainGeo, rainMat);
+rainPoints.visible = false;
+scene.add(rainPoints);
+
+/* ---------- Player (spline-locked) ---------- */
+const car = new THREE.Group();
+const carBody = new THREE.Mesh(new THREE.BoxGeometry(3.2,1.0,6), new THREE.MeshStandardMaterial({ color:0x001833, metalness:0.7, roughness:0.2 }));
+carBody.position.y = 1.0; car.add(carBody);
+const neonPanel = new THREE.Mesh(new THREE.BoxGeometry(3.4,0.12,6.2), new THREE.MeshBasicMaterial({ color:0x00ffff, transparent:true, opacity:0.9 }));
+neonPanel.position.y = 1.45; car.add(neonPanel);
+const rear = new THREE.Mesh(new THREE.BoxGeometry(3.2,0.3,0.3), new THREE.MeshBasicMaterial({ color:0xff0077 }));
+rear.position.set(0,0.9,3.1); car.add(rear);
+scene.add(car);
+
+/* Trail */
+const trailMax = 48;
+const trailPositions = new Float32Array(trailMax*3);
+for(let i=0;i<trailMax*3;i++) trailPositions[i]=car.position.x;
+const trailGeo = new THREE.BufferGeometry();
+trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions,3));
+const trailMat = new THREE.LineBasicMaterial({ color:0x00ffff, transparent:true, opacity:0.75 });
+const trailLine = new THREE.Line(trailGeo, trailMat);
+scene.add(trailLine);
+
+/* Camera */
+camera.position.set(0,6,-16);
+camera.lookAt(new THREE.Vector3(0,2,0));
+
+/* Input */
+const keys = {};
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+/* Pole Position style state */
+let carProgress = 0;       // 0..1 along spline
+let lateralOffset = 0;     // -1..1
+let speed = 0;
+let lap = 1;
+let totalTime = 0;
+
+/* HUD elements */
+const speedEl = document.getElementById('speed');
+const lapEl = document.getElementById('lap');
+const timeEl = document.getElementById('time');
+
+/* Toggles */
+document.getElementById('toggleDayNight').onclick = () => {
+  isNight = !isNight;
+  scene.background = makeSkyTexture(isNight);
+  hemi.intensity = isNight?0.5:0.8;
+  sun.intensity = isNight?0.3:0.6;
+};
+document.getElementById('toggleRain').onclick = () => {
+  rainPoints.visible = !rainPoints.visible;
+};
+
+/* ---------- Minimap: image uploader + canvas overlay ---------- */
+const uploader = document.getElementById('mapUploader');
+const resetMapBtn = document.getElementById('resetMap');
+const minimapCanvas = document.getElementById('minimapCanvas');
+const ctx = minimapCanvas.getContext('2d');
+let minimapImage = null;
+let minimapScale = 1;
+let minimapOffset = { x:0, y:0 };
+
+/* Precompute curve bounds for mapping 3D -> 2D */
+const curveSamples = TRACK_CURVE.getSpacedPoints(300);
+let bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+curveSamples.forEach(p => { bounds.minX = Math.min(bounds.minX, p.x); bounds.maxX = Math.max(bounds.maxX, p.x); bounds.minZ = Math.min(bounds.minZ, p.z); bounds.maxZ = Math.max(bounds.maxZ, p.z); });
+
+function drawMinimapBackground(){
+  // clear
+  ctx.clearRect(0,0,minimapCanvas.width,minimapCanvas.height);
+  // draw image if present
+  if (minimapImage){
+    // fit image into canvas while preserving aspect
+    const cw = minimapCanvas.width, ch = minimapCanvas.height;
+    const iw = minimapImage.width, ih = minimapImage.height;
+    const scale = Math.min(cw/iw, ch/ih);
+    minimapScale = scale;
+    const iwScaled = iw*scale, ihScaled = ih*scale;
+    minimapOffset.x = (cw - iwScaled)/2;
+    minimapOffset.y = (ch - ihScaled)/2;
+    ctx.drawImage(minimapImage, minimapOffset.x, minimapOffset.y, iwScaled, ihScaled);
+  } else {
+    // fallback: draw a subtle grid and horizon
+    ctx.fillStyle = '#071018';
+    ctx.fillRect(0,0,minimapCanvas.width,minimapCanvas.height);
+    ctx.strokeStyle = 'rgba(0,255,255,0.06)';
+    for(let y=10;y<minimapCanvas.height;y+=10){
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(minimapCanvas.width,y); ctx.stroke();
+    }
+  }
+}
+
+/* Draw the track path projected onto the minimap canvas */
+function drawTrackOnMinimap(){
+  // map 3D X,Z to canvas coordinates
+  const cw = minimapCanvas.width, ch = minimapCanvas.height;
+  // compute scale to fit curve bounds into canvas area (respecting image transform if present)
+  let sX = (cw - 20) / (bounds.maxX - bounds.minX || 1);
+  let sY = (ch - 20) / (bounds.maxZ - bounds.minZ || 1);
+  // if an image is present, use image transform to align path over image
+  if (minimapImage){
+    // map world bounds to image pixel area
+    const iw = minimapImage.width * minimapScale;
+    const ih = minimapImage.height * minimapScale;
+    const px = minimapOffset.x, py = minimapOffset.y;
+    sX = iw / (bounds.maxX - bounds.minX || 1);
+    sY = ih / (bounds.maxZ - bounds.minZ || 1);
+    // use same scale for both axes to preserve aspect
+    const s = Math.min(sX, sY);
+    sX = sY = s;
+    // center offset to align world center with image center
+    const worldCenterX = (bounds.minX + bounds.maxX)/2;
+    const worldCenterZ = (bounds.minZ + bounds.maxZ)/2;
+    const imgCenterX = px + iw/2;
+    const imgCenterY = py + ih/2;
+    // mapping function
+    const mapPoint = (p) => {
+      const x = imgCenterX + (p.x - worldCenterX) * s;
+      const y = imgCenterY + (p.z - worldCenterZ) * s;
+      return { x, y };
+    };
+    // draw path
+    const pts = TRACK_CURVE.getSpacedPoints(200);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#222';
+    ctx.beginPath();
+    pts.forEach((p,i) => { const m = mapPoint(p); if (i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
+    ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#00f6ff';
+    ctx.beginPath();
+    pts.forEach((p,i) => { const m = mapPoint(p); if (i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
+    ctx.stroke();
+    return mapPoint;
+  } else {
+    // no image: map to canvas area with padding
+    const pad = 10;
+    const s = Math.min(sX, sY);
+    const ox = pad - bounds.minX * s;
+    const oy = pad - bounds.minZ * s;
+    const mapPoint = (p) => ({ x: p.x * s + ox, y: p.z * s + oy });
+    const pts = TRACK_CURVE.getSpacedPoints(200);
+    ctx.lineWidth = 6; ctx.strokeStyle = '#222'; ctx.beginPath();
+    pts.forEach((p,i) => { const m = mapPoint(p); if (i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
+    ctx.stroke();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#00f6ff'; ctx.beginPath();
+    pts.forEach((p,i) => { const m = mapPoint(p); if (i===0) ctx.moveTo(m.x,m.y); else ctx.lineTo(m.x,m.y); });
+    ctx.stroke();
+    return mapPoint;
+  }
+}
+
+/* Draw car dot on minimap using mapping function */
+function drawCarDot(mapPointFunc, progress){
+  const p = TRACK_CURVE.getPointAt(progress);
+  const m = mapPointFunc(p);
+  // small halo
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(255,0,85,0.18)';
+  ctx.arc(m.x, m.y, 10, 0, Math.PI*2);
+  ctx.fill();
+  // dot
+  ctx.beginPath();
+  ctx.fillStyle = '#ff0055';
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.arc(m.x, m.y, 5, 0, Math.PI*2);
+  ctx.fill(); ctx.stroke();
+}
+
+/* Handle image upload */
+uploader.addEventListener('change', (ev) => {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    minimapImage = img;
+    drawMinimapBackground();
+    const mapPointFunc = drawTrackOnMinimap();
+    drawCarDot(mapPointFunc, carProgress);
+  };
+  img.onerror = () => { minimapImage = null; drawMinimapBackground(); drawTrackOnMinimap(); };
+  img.src = URL.createObjectURL(f);
+});
+
+/* Reset minimap to default (no image) */
+resetMapBtn.addEventListener('click', () => {
+  minimapImage = null;
+  uploader.value = '';
+  drawMinimapBackground();
+  drawTrackOnMinimap();
+});
+
+/* Initial minimap draw */
+drawMinimapBackground();
+const initialMapPoint = drawTrackOnMinimap();
+drawCarDot(initialMapPoint, 0);
+
+/* ---------- Car transform helper (spline-locked) ---------- */
+function updateCarTransform(){
+  const p = TRACK_CURVE.getPointAt(carProgress % 1);
+  const t = TRACK_CURVE.getTangentAt(carProgress % 1).normalize();
+  const normal = new THREE.Vector3(-t.z,0,t.x).normalize();
+  const sideways = normal.clone().multiplyScalar(lateralOffset*10);
+  const carPos = p.clone().add(sideways);
+  carPos.y = 1.0;
+  car.position.copy(carPos);
+  const angle = Math.atan2(t.x,t.z);
+  car.rotation.y = angle;
+  // camera behind car
+  const camOffset = t.clone().multiplyScalar(-12).add(new THREE.Vector3(0,4,0));
+  camera.position.copy(carPos).add(camOffset);
+  const lookAhead = p.clone().add(t.clone().multiplyScalar(20)); lookAhead.y = 2;
+  camera.lookAt(lookAhead);
+}
+
+/* ---------- Animation loop ---------- */
+let lastTime = performance.now();
+function animate(){
+  const now = performance.now();
+  const dt = Math.min(0.05,(now-lastTime)/1000);
+  lastTime = now;
+  totalTime += dt;
+
+  // Input
+  const accel = keys['ArrowUp'] || keys['KeyW'];
+  const brake = keys['ArrowDown'] || keys['KeyS'];
+  const left = keys['ArrowLeft'] || keys['KeyA'];
+  const right = keys['ArrowRight'] || keys['KeyD'];
+
+  // Speed (arcade feel)
+  const maxSpeed = 260;
+  if (accel) speed += 140*dt; else speed -= 80*dt;
+  if (brake) speed -= 200*dt;
+  speed = Math.max(0, Math.min(maxSpeed, speed));
+
+  // Steering (lateral offset)
+  const steerStrength = 0.9;
+  if (speed>10){
+    if (left) lateralOffset -= steerStrength*dt;
+    if (right) lateralOffset += steerStrength*dt;
+  }
+  lateralOffset = Math.max(-1, Math.min(1, lateralOffset));
+
+  // Advance progress
+  const progressSpeed = speed/9000;
+  carProgress += progressSpeed * dt * 60; // tuned multiplier for lap length
+  if (carProgress >= 1){
+    carProgress -= 1;
+    lap = Math.min(3, lap+1);
+  }
+
+  // Update transforms
+  updateCarTransform();
+
+  // Trail update
+  const posAttr = trailGeo.attributes.position;
+  for(let i=trailMax-1;i>0;i--){
+    trailPositions[i*3+0] = trailPositions[(i-1)*3+0];
+    trailPositions[i*3+1] = trailPositions[(i-1)*3+1];
+    trailPositions[i*3+2] = trailPositions[(i-1)*3+2];
+  }
+  trailPositions[0] = car.position.x; trailPositions[1] = car.position.y-0.4; trailPositions[2] = car.position.z;
+  posAttr.needsUpdate = true;
+
+  // Rain update
+  if (rainPoints.visible){
+    const arr = rainGeo.attributes.position.array;
+    for(let i=0;i<rainCount;i++){
+      arr[i*3+1] -= 120*dt;
+      if (arr[i*3+1] < 5) arr[i*3+1] = 140;
+    }
+    rainGeo.attributes.position.needsUpdate = true;
+    lateralOffset *= (1 - 0.08*dt);
+  }
+
+  // HUD
+  speedEl.textContent = Math.round(speed).toString();
+  lapEl.textContent = lap.toString();
+  timeEl.textContent = totalTime.toFixed(1);
+
+  // Redraw minimap: background -> track -> car
+  drawMinimapBackground();
+  const mapPointFunc = drawTrackOnMinimap();
+  drawCarDot(mapPointFunc, carProgress % 1);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* Resize */
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  // resize minimap canvas to keep crispness
+  const wrap = document.getElementById('minimapWrap');
+  const rect = wrap.getBoundingClientRect();
+  minimapCanvas.width = Math.max(200, Math.floor(rect.width - 16));
+  minimapCanvas.height = Math.max(140, Math.floor(rect.height - 48));
+  drawMinimapBackground();
+  drawTrackOnMinimap();
+});
+
+/* Initial canvas sizing */
+(function initMinimapSize(){
+  const wrap = document.getElementById('minimapWrap');
+  const rect = wrap.getBoundingClientRect();
+  minimapCanvas.width = Math.max(200, Math.floor(rect.width - 16));
+  minimapCanvas.height = Math.max(140, Math.floor(rect.height - 48));
+  drawMinimapBackground();
+  drawTrackOnMinimap();
+})();
+</script>
+</body>
+</html>
