@@ -1,0 +1,256 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Cyborg Operation — Final</title>
+<style>
+  body{margin:0;background:#08121a;color:#cfeffb;font-family:Arial}
+  .wrap{width:1180px;margin:18px auto}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .title{font-weight:700}
+  .layout{display:flex;gap:12px}
+  /* Stage */
+  #stage{width:820px;height:620px;background:#021018;border-radius:8px;position:relative;overflow:hidden}
+  canvas{position:absolute;left:0;top:0;display:block}
+  /* Side */
+  .side{width:340px}
+  .panel{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
+  .hud{margin-bottom:8px}
+  .small{font-size:0.86rem;color:#9fb3c8}
+  .controls{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .btn{background:#00d1ff;color:#012;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;font-weight:700}
+  .piece-list{max-height:220px;overflow:auto;margin-top:8px}
+  .piece-item{display:flex;justify-content:space-between;padding:6px;border-radius:6px;background:rgba(255,255,255,0.01);margin-bottom:6px}
+  pre.console{background:#00121a;color:#bfefff;padding:8px;border-radius:6px;max-height:120px;overflow:auto;margin-top:8px}
+  label.pick{padding:6px 10px;border-radius:6px;border:1px dashed rgba(190,239,255,0.06);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="title">Cyborg Operation — Final</div>
+    <div>Budget: <span id="budget">1000</span> ⟡</div>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div id="stage">
+        <canvas id="bg" width="820" height="620" style="z-index:0"></canvas>
+        <canvas id="overlay" width="820" height="620" style="z-index:1"></canvas>
+      </div>
+
+      <div class="controls" style="margin-top:10px">
+        <label class="pick" id="picker">Load cyborgmap.png (same folder)</label>
+        <span id="status" class="small">Loading image: cyborgmap.png</span>
+
+        <button id="draw" class="btn">Draw Piece</button>
+        <button id="reset" class="btn" style="background:#ff7b7b">Reset</button>
+
+        <label class="small">Scale</label>
+        <input id="scale" type="range" min="0.5" max="1.8" step="0.01" value="1">
+
+        <label class="small">Offset X</label>
+        <input id="offx" type="range" min="-200" max="200" step="1" value="0">
+
+        <label class="small">Offset Y</label>
+        <input id="offy" type="range" min="-200" max="200" step="1" value="0">
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="panel">
+        <div style="font-weight:700">Current Card</div>
+        <div id="cardName" style="font-weight:700;margin-top:6px">No piece</div>
+        <div id="cardInfo" class="small" style="margin-top:6px">Draw a piece to begin</div>
+
+        <div style="font-weight:700;margin-top:12px">Pieces</div>
+        <div id="pieceList" class="piece-list"></div>
+
+        <div style="font-weight:700;margin-top:12px">Diagnostics</div>
+        <pre id="console" class="console">Console log...</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- minimal, proven loader (exact onload flow) ---------- */
+const bgCanvas = document.getElementById('bg'), bgCtx = bgCanvas.getContext('2d');
+const overlay = document.getElementById('overlay'), oCtx = overlay.getContext('2d');
+const statusEl = document.getElementById('status'), consoleEl = document.getElementById('console');
+function clog(...a){ console.log(...a); consoleEl.textContent += a.join(' ') + '\n'; consoleEl.scrollTop = consoleEl.scrollHeight; }
+
+let bgImg = new Image();
+let bgLoaded = false;
+let drawParams = { scale:1, offx:0, offy:0 };
+
+bgImg.onload = function(){
+  bgLoaded = true;
+  statusEl.textContent = 'Image loaded. Budget: ' + budget;
+  clog('bg loaded', bgImg.naturalWidth + 'x' + bgImg.naturalHeight);
+  drawBackground();
+  drawOverlay();
+};
+bgImg.onerror = function(e){
+  bgLoaded = false;
+  statusEl.textContent = 'Failed to load cyborgmap.png. Put it in same folder as this HTML.';
+  clog('bg load error', e);
+  drawBackground();
+};
+// start load (must be same folder)
+bgImg.src = 'cyborgmap.png';
+
+/* ---------- UI wiring ---------- */
+document.getElementById('picker').addEventListener('click', ()=> {
+  // keep behavior simple: if image already loaded, reload attempt
+  bgImg = new Image();
+  bgImg.onload = function(){ bgLoaded = true; statusEl.textContent = 'Image loaded. Budget: ' + budget; clog('bg loaded (picker)'); drawBackground(); drawOverlay(); };
+  bgImg.onerror = function(e){ bgLoaded = false; statusEl.textContent = 'Failed to load cyborgmap.png'; clog('picker load error', e); drawBackground(); drawOverlay(); };
+  bgImg.src = 'cyborgmap.png';
+});
+
+const scaleInput = document.getElementById('scale');
+const offxInput = document.getElementById('offx');
+const offyInput = document.getElementById('offy');
+scaleInput.addEventListener('input', ()=> { drawParams.scale = Number(scaleInput.value); drawBackground(); drawOverlay(); });
+offxInput.addEventListener('input', ()=> { drawParams.offx = Number(offxInput.value); drawBackground(); drawOverlay(); });
+offyInput.addEventListener('input', ()=> { drawParams.offy = Number(offyInput.value); drawBackground(); drawOverlay(); });
+
+/* ---------- simple game state (same logic as working prototype) ---------- */
+const rim = { x:40, y:30, w:740, h:560 };
+const ideal = { x:320, y:220, w:180, h:120 };
+let piece = null, dragging=false, offset={x:0,y:0};
+let budget = 1000;
+document.getElementById('budget').textContent = budget;
+
+const pieces = [
+  {id:'neurochip', name:'Neurochip', cost:120, payout:220, w:48, h:32, locked:false},
+  { id:'micro', name:'Micro Circuit', cost:30, payout:50, w:28, h:18 },
+  { id:'sensor', name:'Sensor Array', cost:80, payout:120, w:40, h:28 },
+  { id:'neurochip', name:'Neurochip', cost:120, payout:220, w:48, h:32 },
+  { id:'retina', name:'Retinal Implant', cost:150, payout:260, w:44, h:30 },
+  { id:'auditory', name:'Auditory Enhancer', cost:90, payout:140, w:36, h:24 },
+  { id:'vascular', name:'Vascular Stent', cost:200, payout:360, w:52, h:36 },
+  { id:'dermal', name:'Dermal Plating', cost:220, payout:380, w:60, h:40 },
+  { id:'exotendon', name:'Exo Tendon', cost:300, payout:520, w:64, h:44 },
+  { id:'biofilter', name:'Bio Filter', cost:260, payout:420, w:56, h:38 },
+  { id:'neuralace', name:'Neural Lace', cost:420, payout:760, w:72, h:48 },
+  { id:'lung', name:'Lung Module', cost:700, payout:1200, w:72, h:52 },
+  { id:'heart', name:'Cardiac Implant', cost:900, payout:1600, w:80, h:60 },
+  { id:'cogaccel', name:'Cognitive Accelerator', cost:500, payout:900, w:68, h:46 },
+  { id:'opticarray', name:'Optic Array', cost:340, payout:620, w:66, h:44 },
+  { id:'immune', name:'Immune Booster', cost:180, payout:300, w:48, h:30 }
+];
+
+function renderList(){
+  const el = document.getElementById('pieceList'); el.innerHTML = '';
+  pieces.forEach(p=>{
+    const row = document.createElement('div'); row.className='piece-item';
+    row.innerHTML = `<div style="font-weight:700">${p.name}</div><div style="text-align:right">${p.cost} ⟡<div style="font-size:0.75rem;color:#9fb3c8">${p.locked?'Locked':''}</div></div>`;
+    row.addEventListener('click', ()=> {
+      if(p.locked){ clog('locked', p.name); return; }
+      if(piece) return;
+      piece = { x:20, y:20, w:p.w, h:p.h, cost:p.cost, payout:p.payout, name:p.name };
+      budget -= piece.cost; updateBudget();
+      document.getElementById('cardName').textContent = piece.name;
+      document.getElementById('cardInfo').textContent = `Cost ${piece.cost} ⟡ — Payout ${piece.payout} ⟡`;
+      drawOverlay();
+    });
+    el.appendChild(row);
+  });
+}
+renderList();
+
+function updateBudget(){ document.getElementById('budget').textContent = budget; }
+
+/* draw background (cover fit) */
+function drawBackground(){
+  const cw = bgCanvas.width, ch = bgCanvas.height;
+  bgCtx.clearRect(0,0,cw,ch);
+  if(bgLoaded && bgImg){
+    // cover fit
+    const ir = bgImg.width / bgImg.height, cr = cw / ch;
+    let dw, dh;
+    if(ir > cr){ dh = ch; dw = bgImg.width * (ch / bgImg.height); }
+    else { dw = cw; dh = bgImg.height * (cw / bgImg.width); }
+    // apply scale and offsets
+    dw *= drawParams.scale; dh *= drawParams.scale;
+    const dx = Math.round((cw - dw)/2 + drawParams.offx), dy = Math.round((ch - dh)/2 + drawParams.offy);
+    bgCtx.drawImage(bgImg, dx, dy, dw, dh);
+  } else {
+    // placeholder
+    const g = bgCtx.createLinearGradient(0,0,0,620); g.addColorStop(0,'#021018'); g.addColorStop(1,'#041826');
+    bgCtx.fillStyle = g; bgCtx.fillRect(0,0,cw,ch);
+    bgCtx.fillStyle = 'rgba(255,255,255,0.03)'; bgCtx.fillRect(cw/2-120,ch/2-160,240,320);
+  }
+}
+
+/* draw overlay (rim, ideal, piece) */
+function drawOverlay(){
+  oCtx.clearRect(0,0,overlay.width,overlay.height);
+  // rim
+  oCtx.strokeStyle = 'rgba(255,80,80,0.9)'; oCtx.lineWidth = 6; oCtx.strokeRect(rim.x, rim.y, rim.w, rim.h);
+  // ideal
+  oCtx.fillStyle = 'rgba(0,200,120,0.12)'; oCtx.fillRect(ideal.x, ideal.y, ideal.w, ideal.h);
+  oCtx.strokeStyle = 'rgba(0,200,120,0.6)'; oCtx.lineWidth = 2; oCtx.strokeRect(ideal.x, ideal.y, ideal.w, ideal.h);
+  // pickup area
+  oCtx.fillStyle = 'rgba(255,209,102,0.6)'; oCtx.fillRect(20,20,60,60); oCtx.strokeStyle='#b36b00'; oCtx.strokeRect(20,20,60,60); oCtx.fillStyle='#fff'; oCtx.font='11px Arial'; oCtx.fillText('Pickup',28,56);
+  // piece
+  if(piece){
+    oCtx.fillStyle = '#ffd166'; oCtx.fillRect(piece.x, piece.y, piece.w, piece.h);
+    oCtx.strokeStyle = '#b36b00'; oCtx.lineWidth = 2; oCtx.strokeRect(piece.x, piece.y, piece.w, piece.h);
+  }
+}
+
+/* initial draw */
+drawBackground(); drawOverlay();
+
+/* interactions (same as working prototype) */
+overlay.addEventListener('mousedown', (ev)=>{
+  const r = overlay.getBoundingClientRect();
+  const x = ev.clientX - r.left, y = ev.clientY - r.top;
+  if(!piece && x>=20 && x<=80 && y>=20 && y<=80){
+    // spawn default unlocked piece
+    const def = pieces.find(p=>!p.locked);
+    if(def){ piece = { x:20, y:20, w:def.w, h:def.h, cost:def.cost, payout:def.payout, name:def.name }; budget -= piece.cost; updateBudget(); document.getElementById('cardName').textContent = piece.name; document.getElementById('cardInfo').textContent = `Cost ${piece.cost} ⟡ — Payout ${piece.payout} ⟡`; drawOverlay(); }
+    return;
+  }
+  if(piece && x>=piece.x && x<=piece.x+piece.w && y>=piece.y && y<=piece.y+piece.h){
+    dragging = true; offset.x = x - piece.x; offset.y = y - piece.y;
+  }
+});
+window.addEventListener('mousemove', (ev)=>{
+  if(!dragging || !piece) return;
+  const r = overlay.getBoundingClientRect();
+  piece.x = ev.clientX - r.left - offset.x;
+  piece.y = ev.clientY - r.top - offset.y;
+  drawOverlay();
+});
+window.addEventListener('mouseup', ()=>{
+  if(!piece) return;
+  if(dragging){
+    dragging = false;
+    const hitRim = piece.x < rim.x || piece.y < rim.y || piece.x+piece.w > rim.x+rim.w || piece.y+piece.h > rim.y+rim.h;
+    if(hitRim){ budget -= 50; updateBudget(); statusEl.textContent = 'Rim touched! Penalty. Budget: ' + budget; piece.x=20; piece.y=20; drawOverlay(); return; }
+    const inside = piece.x >= ideal.x && piece.y >= ideal.y && piece.x+piece.w <= ideal.x+ideal.w && piece.y+piece.h <= ideal.y+ideal.h;
+    if(inside){ budget += piece.payout; updateBudget(); statusEl.textContent = 'Perfect placement! Budget: ' + budget; piece=null; document.getElementById('cardName').textContent='No piece'; document.getElementById('cardInfo').textContent='Draw a piece to begin'; drawOverlay(); }
+    else { budget += Math.round(piece.payout*0.5); updateBudget(); statusEl.textContent = 'Partial placement. Budget: ' + budget; piece=null; document.getElementById('cardName').textContent='No piece'; document.getElementById('cardInfo').textContent='Draw a piece to begin'; drawOverlay(); }
+  }
+});
+
+/* draw button and reset */
+document.getElementById('draw').addEventListener('click', ()=>{
+  if(piece) return;
+  const unlocked = pieces.filter(p=>!p.locked);
+  if(!unlocked.length) return;
+  const p = unlocked[Math.floor(Math.random()*unlocked.length)];
+  piece = { x:20, y:20, w:p.w, h:p.h, cost:p.cost, payout:p.payout, name:p.name };
+  budget -= piece.cost; updateBudget();
+  document.getElementById('cardName').textContent = piece.name; document.getElementById('cardInfo').textContent = `Cost ${piece.cost} ⟡ — Payout ${piece.payout} ⟡`;
+  drawOverlay();
+});
+document.getElementById('reset').addEventListener('click', ()=>{ piece=null; document.getElementById('cardName').textContent='No piece'; document.getElementById('cardInfo').textContent='Draw a piece to begin'; drawOverlay(); });
+
+</script>
+</body>
+</html>
