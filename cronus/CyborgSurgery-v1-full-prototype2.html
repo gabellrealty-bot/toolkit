@@ -1,0 +1,710 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Cyborg Operation — Saint Mother</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --bg:#071826; --panel:#0b1b22; --accent:#00d1ff; --muted:#9fb3c8;
+    --accent-2:#1db954; --warn:#ff6b6b;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:#e6f3fb;font-family:Inter,Arial}
+  /* Increased overall width to accommodate wider side panels */
+  .wrap{width:1700px;margin:18px auto;padding:14px;border-radius:10px;box-sizing:border-box}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .title{font-weight:800;letter-spacing:0.2px}
+  .layout{display:flex;gap:12px;align-items:flex-start}
+  /* LEFT: Wider palette column */
+  .left{width:420px;display:flex;flex-direction:column;gap:12px}
+  .palette-panel{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;height:760px;box-sizing:border-box;display:flex;flex-direction:column}
+  .palette{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;overflow:visible;padding-right:6px}
+  .palette-item{width:120px;height:84px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:1px solid rgba(255,255,255,0.03);transition:transform .14s cubic-bezier(.2,.9,.2,1),box-shadow .14s}
+  .palette-item:hover{transform:translateY(-6px) scale(1.02);box-shadow:0 10px 30px rgba(0,0,0,0.45)}
+  .palette-item.locked{opacity:0.45;cursor:not-allowed;transform:none;box-shadow:none}
+  .palette-name{font-size:12px;font-weight:700;text-align:center;margin-top:6px}
+  .palette-cost{font-size:11px;color:var(--muted)}
+  
+  /* CENTER: Stage (reduced width to fit wider sides) */
+  .center{flex:1;display:flex;flex-direction:column;gap:12px;align-items:center}
+  #stage{width:820px;height:560px;background:#021018;border-radius:8px;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.03);transition:box-shadow .28s ease}
+  #stage.spawn-anim{box-shadow:0 12px 40px rgba(0,210,255,0.12), inset 0 0 40px rgba(0,210,255,0.03)}
+  canvas{position:absolute;left:0;top:0;display:block}
+  .controls{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;width:820px}
+  .btn{background:var(--accent);color:#012;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;font-weight:700;transition:transform .12s ease,opacity .12s}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:#bfefff}
+  /* Console under stage */
+  .console-wrap{width:820px;margin-top:8px}
+  .console{background:#00121a;color:#bfefff;padding:10px;border-radius:6px;flex:0 0 180px;overflow:auto;white-space:pre-wrap;font-family:monospace;font-size:12px}
+  .console::-webkit-scrollbar{display:none}
+  .console{ -ms-overflow-style: none; scrollbar-width: none; }
+  /* RIGHT: Wider side panel */
+  .right{width:420px}
+  .panel{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;box-sizing:border-box;height:760px;display:flex;flex-direction:column}
+  .small{font-size:0.86rem;color:var(--muted)}
+  .piece-list{max-height:160px;overflow:hidden;margin-top:8px}
+  .piece-item{display:flex;justify-content:space-between;padding:6px;border-radius:6px;background:rgba(255,255,255,0.01);margin-bottom:6px;transition:transform .12s,background .12s}
+  .piece-item:hover{transform:translateY(-3px);background:rgba(255,255,255,0.02)}
+  .shop{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+  .shop-item{display:flex;justify-content:space-between;align-items:center;padding:6px;border-radius:6px;background:rgba(255,255,255,0.01);transition:transform .12s,background .12s}
+  .shop-item:hover{transform:translateY(-3px);background:rgba(255,255,255,0.02)}
+  .diag-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  /* Toast and ghost */
+  .toast-wrap{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:9999;pointer-events:none}
+  .toast{min-width:220px;margin:6px 0;background:rgba(0,0,0,0.8);color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.6);font-weight:600;pointer-events:auto;opacity:0;transform:translateY(-8px);transition:opacity .22s,transform .22s}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.success{background:linear-gradient(90deg,var(--accent-2),#0ea36b)}
+  .toast.warn{background:linear-gradient(90deg,#ff7b7b,#ff4b4b)}
+  .toast.info{background:linear-gradient(90deg,var(--accent),#0077b6)}
+  .ghost-tile{position:fixed;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);opacity:0.95;border-radius:8px;padding:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);font-weight:700}
+  @media (max-width:1700px){ .wrap{width:100%} .left{width:360px} .right{width:360px} #stage{width:760px} .console-wrap{width:760px} }
+      #integration-panel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 8px 12px;
+      flex-wrap: wrap;
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="title">Cyborg Operation — Saint Mother</div>
+    <div>Budget: <span id="budget">1000</span> ⟡</div>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT: Wider palette column -->
+    <div class="left">
+      <div class="palette-panel">
+        <div style="font-weight:700">Palette</div>
+        <div class="small">Click or drag a tile onto the stage to place it</div>
+        <div id="palette" class="palette" aria-label="Palette"></div>
+
+        <div style="font-weight:700;margin-top:12px">Balance Tuning</div>
+        <div class="small" style="margin-top:6px">Price Multiplier</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <input id="priceMult" type="range" min="1" max="2.5" step="0.05" value="1" style="flex:1">
+          <div id="multVal" class="small" style="width:48px;text-align:right">1.00×</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="applyPrices" class="btn" style="flex:1">Apply</button>
+          <button id="resetPrices" class="btn ghost" style="flex:1">Reset</button>
+        </div>
+        <div class="small" style="margin-top:8px">Increasing prices affects part costs and unlock costs only; budget is unchanged.</div>
+      </div>
+    </div>
+
+    <!-- CENTER: Stage + Console under it -->
+    <div class="center">
+	
+	
+	
+	<div id="integration-panel">
+    <div><strong>Operator:</strong> Dr. Rosa</div>
+    <div>•</div>
+    <div><strong>Patient:</strong> Maria</div>
+    <div>•</div>
+    <div id="integration-gauge">
+      <svg id="gauge" width="180" height="36" viewBox="0 0 180 36">
+        <rect x="0" y="10" width="180" height="16" rx="8" fill="#222"/>
+        <rect id="gauge-fill" x="0" y="10" width="0" height="16" rx="8" fill="#4caf50"/>
+      </svg>
+      <div>
+        <div id="integration-text"><strong>Integration:</strong> 15% → 16%</div>
+        <div id="integration-sub" style="font-size:12px;opacity:0.85">Mode: Auto • Next +1% at 11000 ⟡</div>
+      </div>
+      <button id="toggle-mode">Manual</button>
+    </div>
+  </div>
+	
+	
+	
+	
+      <div id="stage">
+        <canvas id="bg" width="820" height="560" style="z-index:0"></canvas>
+        <canvas id="overlay" width="820" height="560" style="z-index:1"></canvas>
+      </div>
+
+      <div class="controls" style="width:820px;justify-content:flex-start">
+        <label id="picker" class="small" style="padding:6px 10px;border-radius:6px;border:1px dashed rgba(190,239,255,0.06);cursor:pointer">Load cyborgmap.png (same folder)</label>
+        <span id="status" class="small" style="margin-left:8px">Loading image: cyborgmap.png</span>
+
+        <button id="draw" class="btn" style="margin-left:auto">Draw Piece</button>
+        <button id="reset" class="btn" style="background:#ff7b7b">Reset</button>
+
+        <label class="small" style="margin-left:8px">Scale</label>
+        <input id="scale" type="range" min="0.5" max="1.8" step="0.01" value="1">
+
+        <label class="small">Offset X</label>
+        <input id="offx" type="range" min="-200" max="200" step="1" value="0">
+
+        <label class="small">Offset Y</label>
+        <input id="offy" type="range" min="-200" max="200" step="1" value="0">
+
+        <label class="small">Debug</label>
+        <input id="debug" type="checkbox"/>
+      </div>
+
+      <div class="console-wrap">
+        <div class="diag-head" style="margin-bottom:6px">
+          <div style="font-weight:700">Diagnostics</div>
+          <div><button id="clearLog" class="btn ghost">Clear Log</button></div>
+        </div>
+        <div id="console" class="console" aria-live="polite">Console log...</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Wider side panel -->
+    <div class="right">
+      <div class="panel">
+        <div style="font-weight:700">Current Card</div>
+        <div id="cardName" style="font-weight:700;margin-top:6px">No piece</div>
+        <div id="cardInfo" class="small" style="margin-top:6px">Draw a piece to begin</div>
+
+        <div style="font-weight:700;margin-top:12px">Pieces</div>
+        <div id="pieceList" class="piece-list"></div>
+
+        <div style="font-weight:700;margin-top:12px">Shop</div>
+        <div id="shop" class="shop"></div>
+
+        <div style="height:12px"></div>
+        <div class="small">Console moved under the map to keep layout tidy for testing.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ---------- Toast helper ---------- */
+const toastWrap = document.getElementById('toastWrap');
+function showToast(text, type='info', ms=2200){
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = text;
+  toastWrap.appendChild(t);
+  requestAnimationFrame(()=> t.classList.add('show'));
+  setTimeout(()=> { t.classList.remove('show'); setTimeout(()=> t.remove(), 260); }, ms);
+}
+
+/* ---------- Diagnostics (last 20) ---------- */
+const consoleEl = document.getElementById('console');
+let diagLog = [];
+const MAX_LOG = 20;
+function timeStamp(){ return new Date().toISOString().replace('T',' ').split('.')[0]; }
+function refreshConsoleFromDiag(){ consoleEl.textContent = diagLog.map(e => `[${e.t}] [${e.type}] ${e.message}`).join('\n') + (diagLog.length ? '\n' : ''); consoleEl.scrollTop = consoleEl.scrollHeight; }
+function logEvent(type, message){ const entry = { t: timeStamp(), type, message }; diagLog.push(entry); if(diagLog.length > MAX_LOG) diagLog = diagLog.slice(diagLog.length - MAX_LOG); refreshConsoleFromDiag(); }
+document.getElementById('clearLog').addEventListener('click', ()=>{ diagLog = []; consoleEl.textContent = ''; logEvent('system','Diagnostics cleared by user'); showToast('Diagnostics cleared', 'info'); });
+
+/* ---------- Canvas + loader ---------- */
+const bgCanvas = document.getElementById('bg'), bgCtx = bgCanvas.getContext('2d');
+const overlay = document.getElementById('overlay'), oCtx = overlay.getContext('2d');
+const statusEl = document.getElementById('status'), budgetEl = document.getElementById('budget');
+
+let bgImg = new Image();
+let bgLoaded = false;
+let drawParams = { scale:1, offx:0, offy:0 };
+
+let budget = 1000;
+budgetEl.textContent = budget;
+
+bgImg.onload = function(){
+  bgLoaded = true;
+  statusEl.textContent = 'Image loaded. Budget: ' + budget;
+  logEvent('system','Background image loaded: ' + bgImg.naturalWidth + 'x' + bgImg.naturalHeight);
+  drawBackground(); drawOverlay();
+};
+bgImg.onerror = function(e){
+  bgLoaded = false;
+  statusEl.textContent = 'Failed to load cyborgmap.png. Put it in same folder as this HTML.';
+  logEvent('error','Background failed to load');
+  drawBackground();
+};
+bgImg.src = 'cyborgmap.png';
+
+document.getElementById('picker').addEventListener('click', ()=> {
+  bgImg = new Image();
+  bgImg.onload = function(){ bgLoaded = true; statusEl.textContent = 'Image loaded. Budget: ' + budget; logEvent('system','Background reloaded via picker'); drawBackground(); drawOverlay(); };
+  bgImg.onerror = function(e){ bgLoaded = false; statusEl.textContent = 'Failed to load cyborgmap.png'; logEvent('error','Picker failed to load background'); drawBackground(); drawOverlay(); };
+  bgImg.src = 'cyborgmap.png';
+});
+
+const scaleInput = document.getElementById('scale');
+const offxInput = document.getElementById('offx');
+const offyInput = document.getElementById('offy');
+scaleInput.addEventListener('input', ()=> { drawParams.scale = Number(scaleInput.value); drawBackground(); drawOverlay(); logEvent('ui','Scale set to ' + drawParams.scale); });
+offxInput.addEventListener('input', ()=> { drawParams.offx = Number(offxInput.value); drawBackground(); drawOverlay(); logEvent('ui','OffsetX set to ' + drawParams.offx); });
+offyInput.addEventListener('input', ()=> { drawParams.offy = Number(offyInput.value); drawBackground(); drawOverlay(); logEvent('ui','OffsetY set to ' + drawParams.offy); });
+
+/* ---------- Pieces base data ---------- */
+const basePieces = [
+  { id:'micro', name:'Micro Circuit', baseCost:30, payout:50, w:28, h:18, baseUnlock:0 },
+  { id:'sensor', name:'Sensor Array', baseCost:80, payout:120, w:40, h:28, baseUnlock:0 },
+  { id:'neurochip', name:'Neurochip', baseCost:120, payout:220, w:48, h:32, baseUnlock:0 },
+  { id:'retina', name:'Retinal Implant', baseCost:150, payout:260, w:44, h:30, baseUnlock:120 },
+  { id:'auditory', name:'Auditory Enhancer', baseCost:90, payout:140, w:36, h:24, baseUnlock:80 },
+  { id:'vascular', name:'Vascular Stent', baseCost:200, payout:360, w:52, h:36, baseUnlock:180 },
+  { id:'dermal', name:'Dermal Plating', baseCost:220, payout:380, w:60, h:40, baseUnlock:200 },
+  { id:'exotendon', name:'Exo Tendon', baseCost:300, payout:520, w:64, h:44, baseUnlock:260 },
+  { id:'biofilter', name:'Bio Filter', baseCost:260, payout:420, w:56, h:38, baseUnlock:240 },
+  { id:'neuralace', name:'Neural Lace', baseCost:420, payout:760, w:72, h:48, baseUnlock:300 },
+  { id:'cogaccel', name:'Cognitive Accelerator', baseCost:500, payout:900, w:68, h:46, baseUnlock:350 },
+  { id:'opticarray', name:'Optic Array', baseCost:340, payout:620, w:66, h:44, baseUnlock:220 },
+  { id:'immune', name:'Immune Booster', baseCost:180, payout:300, w:48, h:30, baseUnlock:0 },
+  { id:'lung', name:'Lung Module', baseCost:700, payout:1200, w:72, h:52, baseUnlock:500 },
+  { id:'heart', name:'Cardiac Implant', baseCost:900, payout:1600, w:80, h:60, baseUnlock:800 }
+];
+
+let priceMultiplier = 1.0;
+const pieces = [];
+function applyPriceMultiplier(mult){
+  priceMultiplier = mult;
+  pieces.length = 0;
+  basePieces.forEach(b=>{
+    pieces.push({
+      id: b.id,
+      name: b.name,
+      cost: Math.round(b.baseCost * priceMultiplier),
+      payout: b.payout,
+      w: b.w, h: b.h,
+      unlockCost: Math.round(b.baseUnlock * priceMultiplier)
+    });
+  });
+}
+applyPriceMultiplier(1.0);
+
+/* unlocked state persisted in localStorage */
+const STORAGE_KEY = 'cyborg_unlocked_v1';
+let unlocked = {};
+function loadUnlocked(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) unlocked = JSON.parse(raw);
+    else {
+      pieces.forEach(p => { unlocked[p.id] = (p.unlockCost === 0); });
+      saveUnlocked();
+    }
+  }catch(e){
+    pieces.forEach(p => { unlocked[p.id] = (p.unlockCost === 0); });
+    saveUnlocked();
+  }
+}
+function saveUnlocked(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(unlocked)); }
+loadUnlocked();
+
+/* auto-unlock by progression threshold */
+function checkAutoUnlock(){
+  pieces.forEach(p=>{
+    if(!unlocked[p.id] && p.unlockCost > 0 && budget >= (p.unlockCost + Math.round(p.unlockCost*0.5))){
+      unlocked[p.id] = true;
+      saveUnlocked();
+      logEvent('auto-unlock', `${p.id} auto-unlocked at budget ${budget}`);
+      renderShop(); renderList(); renderPalette();
+      showToast(`${p.name} auto-unlocked`, 'success');
+    }
+  });
+}
+
+/* ---------- Palette rendering + drag-from-palette ---------- */
+const paletteEl = document.getElementById('palette');
+let paletteGhost = null;
+let paletteDragging = false;
+let paletteDragItem = null;
+
+function createGhost(text){
+  const g = document.createElement('div');
+  g.className = 'ghost-tile';
+  g.textContent = text;
+  document.body.appendChild(g);
+  return g;
+}
+
+function startPaletteDrag(item, clientX, clientY){
+  if(!unlocked[item.id]){ showToast('Locked: ' + item.name, 'warn'); logEvent('ui','Attempted drag locked ' + item.id); return; }
+  paletteDragging = true;
+  paletteDragItem = item;
+  paletteGhost = createGhost(item.name + ' — ' + item.cost + ' ⟡');
+  moveGhost(clientX, clientY);
+  document.addEventListener('mousemove', paletteMouseMove);
+  document.addEventListener('mouseup', paletteMouseUp);
+  logEvent('ui','Started palette drag ' + item.id);
+}
+
+function moveGhost(clientX, clientY){
+  if(!paletteGhost) return;
+  paletteGhost.style.left = clientX + 'px';
+  paletteGhost.style.top = clientY + 'px';
+}
+
+function endPaletteDrag(dropOnStage, dropX, dropY){
+  if(!paletteDragging) return;
+  document.removeEventListener('mousemove', paletteMouseMove);
+  document.removeEventListener('mouseup', paletteMouseUp);
+  if(paletteGhost){ paletteGhost.remove(); paletteGhost = null; }
+  if(dropOnStage && paletteDragItem){
+    const rect = overlay.getBoundingClientRect();
+    const x = Math.round(dropX - rect.left);
+    const y = Math.round(dropY - rect.top);
+    piece = { x: x - Math.round(paletteDragItem.w/2), y: y - Math.round(paletteDragItem.h/2), w: paletteDragItem.w, h: paletteDragItem.h, cost: paletteDragItem.cost, payout: paletteDragItem.payout, name: paletteDragItem.name, id: paletteDragItem.id };
+    budget -= piece.cost; updateBudget();
+    document.getElementById('cardName').textContent = piece.name;
+    document.getElementById('cardInfo').textContent = `Cost ${piece.cost} ⟡ — Payout ${piece.payout} ⟡`;
+    drawOverlay();
+    logEvent('spawn','Dragged and dropped ' + piece.id + ' at ' + piece.x + ',' + piece.y + ' (cost ' + piece.cost + ')');
+    showToast('Placed ' + piece.name, 'info');
+    pulseStage();
+  } else {
+    logEvent('ui','Palette drag cancelled');
+  }
+  paletteDragging = false;
+  paletteDragItem = null;
+}
+
+function paletteMouseMove(e){ moveGhost(e.clientX, e.clientY); }
+function paletteMouseUp(e){
+  const rect = document.getElementById('stage').getBoundingClientRect();
+  const overStage = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+  endPaletteDrag(overStage, e.clientX, e.clientY);
+}
+
+function renderPalette(){
+  paletteEl.innerHTML = '';
+  pieces.forEach(p=>{
+    const el = document.createElement('div');
+    el.className = 'palette-item' + (unlocked[p.id] ? '' : ' locked');
+    el.title = p.name + (unlocked[p.id] ? '' : ' (locked)');
+    el.innerHTML = `<div style="font-weight:800">${p.name.split(' ')[0]}</div><div class="palette-name">${p.name}</div><div class="palette-cost">${p.cost} ⟡</div>`;
+    el.addEventListener('click', (ev)=>{
+      if(!unlocked[p.id]){ logEvent('ui','Attempted palette click locked ' + p.id); showToast('Locked: ' + p.name, 'warn'); return; }
+      if(piece) return;
+      piece = { x:20, y:20, w:p.w, h:p.h, cost:p.cost, payout:p.payout, name:p.name, id:p.id };
+      budget -= piece.cost; updateBudget();
+      document.getElementById('cardName').textContent = piece.name;
+      document.getElementById('cardInfo').textContent = `Cost ${piece.cost} ⟡ — Payout ${piece.payout} ⟡`;
+      drawOverlay();
+      logEvent('spawn','Palette clicked ' + p.id + ' (cost ' + p.cost + ')');
+      showToast('Picked ' + p.name, 'info');
+      pulseStage();
+    });
+    el.addEventListener('mousedown', (ev)=>{ ev.preventDefault(); startPaletteDrag(p, ev.clientX, ev.clientY); });
+    el.addEventListener('touchstart', (ev)=>{ const t = ev.touches[0]; ev.preventDefault(); startPaletteDrag(p, t.clientX, t.clientY); }, {passive:false});
+    paletteEl.appendChild(el);
+  });
+}
+
+/* ---------- render piece list and shop ---------- */
+function renderList(){
+  const el = document.getElementById('pieceList'); el.innerHTML = '';
+  pieces.forEach(p=>{
+    const row = document.createElement('div');
+    row.className = 'piece-item' + (unlocked[p.id] ? '' : ' locked');
+    row.innerHTML = `<div style="font-weight:700">${p.name}</div><div style="text-align:right">${p.cost} ⟡<div style="font-size:0.75rem;color:var(--muted)">${unlocked[p.id] ? '' : 'Locked'}</div></div>`;
+    row.addEventListener('click', ()=>{
+      if(!unlocked[p.id]){ logEvent('ui','Attempted to pick locked item ' + p.id); showToast('Locked: ' + p.name, 'warn'); return; }
+      if(piece) return;
+      piece = { x:20, y:20, w:p.w, h:p.h, cost:p.cost, payout:p.payout, name:p.name, id:p.id };
+      budget -= piece.cost; updateBudget();
+      document.getElementById('cardName').textContent = piece.name;
+      document.getElementById('cardInfo').textContent = `Cost ${piece.cost} ⟡ — Payout ${piece.payout} ⟡`;
+      drawOverlay();
+      logEvent('spawn','Picked specific item ' + p.id + ' (cost ' + p.cost + ')');
+      showToast('Picked ' + p.name, 'info');
+      pulseStage();
+    });
+    el.appendChild(row);
+  });
+}
+function renderShop(){
+  const shopEl = document.getElementById('shop'); shopEl.innerHTML = '';
+  pieces.filter(p => p.unlockCost > 0).forEach(p=>{
+    const row = document.createElement('div'); row.className = 'shop-item';
+    const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:700">${p.name}</div><div class="small">Unlock cost: ${p.unlockCost} ⟡</div>`;
+    const right = document.createElement('div');
+    if(unlocked[p.id]){
+      right.innerHTML = `<div class="small">Unlocked</div>`;
+    } else {
+      const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = 'Buy';
+      btn.addEventListener('click', ()=>{
+        if(budget >= p.unlockCost){
+          budget -= p.unlockCost; updateBudget();
+          unlocked[p.id] = true; saveUnlocked();
+          logEvent('purchase', `Unlocked ${p.id} for ${p.unlockCost}`);
+          renderShop(); renderList(); renderPalette();
+          showToast(p.name + ' unlocked', 'success');
+        } else {
+          logEvent('purchase-fail', `Not enough budget to unlock ${p.id}`);
+          showToast('Not enough budget', 'warn');
+        }
+      });
+      right.appendChild(btn);
+    }
+    row.appendChild(left); row.appendChild(right); shopEl.appendChild(row);
+  });
+}
+
+/* ---------- spawn logic and global piece state ---------- */
+let piece = null;
+let dragging = false;
+let dragOffset = { x: 0, y: 0 };
+
+function spawnRandomUnlocked(){
+  const unlockedList = pieces.filter(p => unlocked[p.id]);
+  if(!unlockedList.length) return;
+  const p = unlockedList[Math.floor(Math.random()*unlockedList.length)];
+  piece = { x:20, y:20, w:p.w, h:p.h, cost:p.cost, payout:p.payout, name:p.name, id:p.id };
+  budget -= piece.cost; updateBudget();
+  document.getElementById('cardName').textContent = piece.name;
+  document.getElementById('cardInfo').textContent = `Cost ${piece.cost} ⟡ — Payout ${piece.payout} ⟡`;
+  drawOverlay();
+  logEvent('spawn','Drew random unlocked piece ' + p.id + ' (cost ' + p.cost + ')');
+  showToast('Drew ' + p.name, 'info');
+  pulseStage();
+}
+
+/* ---------- drawing ---------- */
+const rim = { x:40, y:30, w:740, h:560 };
+const ideal = { x:320, y:220, w:180, h:120 };
+
+function drawBackground(){
+  const cw = bgCanvas.width, ch = bgCanvas.height;
+  bgCtx.clearRect(0,0,cw,ch);
+  if(bgLoaded && bgImg){
+    const ir = bgImg.width / bgImg.height, cr = cw / ch;
+    let dw, dh;
+    if(ir > cr){ dh = ch; dw = bgImg.width * (ch / bgImg.height); }
+    else { dw = cw; dh = bgImg.height * (cw / bgImg.width); }
+    dw *= drawParams.scale; dh *= drawParams.scale;
+    const dx = Math.round((cw - dw)/2 + drawParams.offx), dy = Math.round((ch - dh)/2 + drawParams.offy);
+    bgCtx.drawImage(bgImg, dx, dy, dw, dh);
+  } else {
+    const g = bgCtx.createLinearGradient(0,0,0,bgCanvas.height); g.addColorStop(0,'#021018'); g.addColorStop(1,'#041826');
+    bgCtx.fillStyle = g; bgCtx.fillRect(0,0,cw,ch);
+    bgCtx.fillStyle = 'rgba(255,255,255,0.03)'; bgCtx.fillRect(cw/2-120,ch/2-160,240,320);
+  }
+}
+
+function drawOverlay(){
+  oCtx.clearRect(0,0,overlay.width,overlay.height);
+  oCtx.strokeStyle='rgba(255,80,80,0.9)'; oCtx.lineWidth=6; oCtx.strokeRect(rim.x,rim.y,rim.w,rim.h);
+  oCtx.fillStyle='rgba(0,200,120,0.12)'; oCtx.fillRect(ideal.x,ideal.y,ideal.w,ideal.h);
+  oCtx.strokeStyle='rgba(0,200,120,0.6)'; oCtx.lineWidth=2; oCtx.strokeRect(ideal.x,ideal.y,ideal.w,ideal.h);
+  oCtx.fillStyle='rgba(255,209,102,0.6)'; oCtx.fillRect(20,20,60,60); oCtx.strokeStyle='#b36b00'; oCtx.strokeRect(20,20,60,60); oCtx.fillStyle='#fff'; oCtx.font='11px Arial'; oCtx.fillText('Pickup',28,56);
+  if(piece){ oCtx.fillStyle='#ffd166'; oCtx.fillRect(piece.x,piece.y,piece.w,piece.h); oCtx.strokeStyle='#b36b00'; oCtx.lineWidth=2; oCtx.strokeRect(piece.x,piece.y,piece.w,piece.h); }
+  if(document.getElementById('debug') && document.getElementById('debug').checked){ oCtx.fillStyle='rgba(255,255,255,0.06)'; oCtx.fillRect(0,0,260,56); oCtx.fillStyle='#bfefff'; oCtx.font='12px Arial'; oCtx.fillText('Debug ON',8,18); oCtx.fillText(`bg: ${bgLoaded? 'loaded':'none'}`,8,34); }
+}
+
+/* ---------- interactions ---------- */
+overlay.addEventListener('mousedown', (ev)=>{
+  const r = overlay.getBoundingClientRect();
+  const x = ev.clientX - r.left, y = ev.clientY - r.top;
+  if(!piece && x>=20 && x<=80 && y>=20 && y<=80){
+    const def = pieces.find(p=>unlocked[p.id]);
+    if(def){
+      piece = { x:20, y:20, w:def.w, h:def.h, cost:def.cost, payout:def.payout, name:def.name, id:def.id };
+      budget -= piece.cost; updateBudget();
+      document.getElementById('cardName').textContent = piece.name;
+      document.getElementById('cardInfo').textContent = `Cost ${piece.cost} ⟡ — Payout ${piece.payout} ⟡`;
+      drawOverlay();
+      logEvent('spawn','Pickup spawned ' + piece.name + ' (cost ' + piece.cost + ')');
+      showToast('Picked up ' + piece.name, 'info');
+      pulseStage();
+    }
+    return;
+  }
+  if(piece && x>=piece.x && x<=piece.x+piece.w && y>=piece.y && y<=piece.y+piece.h){
+    dragging = true; dragOffset.x = x - piece.x; dragOffset.y = y - piece.y;
+    logEvent('ui','Started dragging ' + piece.name);
+  }
+});
+window.addEventListener('mousemove', (ev)=>{ if(!dragging || !piece) return; const r = overlay.getBoundingClientRect(); piece.x = ev.clientX - r.left - dragOffset.x; piece.y = ev.clientY - r.top - dragOffset.y; drawOverlay(); });
+window.addEventListener('mouseup', ()=>{
+  if(!piece) return;
+  if(dragging){
+    dragging = false;
+    const hitRim = piece.x < rim.x || piece.y < rim.y || piece.x+piece.w > rim.x+rim.w || piece.y+piece.h > rim.y+rim.h;
+    if(hitRim){
+      budget -= 60; updateBudget();
+      logEvent('penalty','Rim touched with ' + piece.name + ' (-60)');
+      showToast('Rim touched! -60 ⟡', 'warn');
+      piece.x = 20; piece.y = 20;
+      drawOverlay();
+      return;
+    }
+    const inside = piece.x >= ideal.x && piece.y >= ideal.y && piece.x+piece.w <= ideal.x+ideal.w && piece.y+piece.h <= ideal.y+ideal.h;
+    if(inside){
+      budget += piece.payout; updateBudget();
+      logEvent('placement','Perfect placement: ' + piece.name + ' (+' + piece.payout + ')');
+      showToast('Perfect placement! +' + piece.payout + ' ⟡', 'success');
+      piece = null; document.getElementById('cardName').textContent='No piece'; document.getElementById('cardInfo').textContent='Draw a piece to begin'; drawOverlay();
+      checkAutoUnlock();
+    } else {
+      const partial = Math.round(piece.payout*0.5);
+      budget += partial; updateBudget();
+      logEvent('placement','Partial placement: ' + piece.name + ' (+' + partial + ')');
+      showToast('Partial placement. +' + partial + ' ⟡', 'info');
+      piece = null; document.getElementById('cardName').textContent='No piece'; document.getElementById('cardInfo').textContent='Draw a piece to begin'; drawOverlay();
+      checkAutoUnlock();
+    }
+  }
+});
+
+/* ---------- draw/reset/shop wiring ---------- */
+document.getElementById('draw').addEventListener('click', ()=>{ if(piece) return; spawnRandomUnlocked(); });
+document.getElementById('reset').addEventListener('click', ()=>{ piece = null; document.getElementById('cardName').textContent='No piece'; document.getElementById('cardInfo').textContent='Draw a piece to begin'; drawOverlay(); logEvent('ui','Piece reset by player'); showToast('Piece reset', 'info'); });
+
+function updateBudget(){ budget = Math.max(0, budget); budgetEl.textContent = budget; statusEl.textContent = 'Budget: ' + budget; logEvent('system','Budget updated: ' + budget); checkAutoUnlock(); }
+
+/* ---------- Price tuning controls (left panel inputs) ---------- */
+const priceMultInput = document.getElementById('priceMult');
+const multVal = document.getElementById('multVal');
+if(priceMultInput){
+  priceMultInput.addEventListener('input', (e)=>{ multVal.textContent = Number(e.target.value).toFixed(2) + '×'; });
+}
+const applyBtn = document.getElementById('applyPrices');
+const resetBtn = document.getElementById('resetPrices');
+if(applyBtn){
+  applyBtn.addEventListener('click', ()=>{
+    const m = Number(document.getElementById('priceMult').value);
+    applyPriceMultiplier(m);
+    renderShop(); renderList(); renderPalette();
+    logEvent('tune','Applied price multiplier ' + m.toFixed(2));
+    showToast('Prices updated ' + m.toFixed(2) + '×', 'info');
+  });
+}
+if(resetBtn){
+  resetBtn.addEventListener('click', ()=>{
+    applyPriceMultiplier(1.0);
+    document.getElementById('priceMult').value = 1.0;
+    if(multVal) multVal.textContent = '1.00×';
+    renderShop(); renderList(); renderPalette();
+    logEvent('tune','Prices reset to base');
+    showToast('Prices reset', 'info');
+  });
+}
+
+/* ---------- stage pulse animation helper ---------- */
+function pulseStage(){
+  const stage = document.getElementById('stage');
+  stage.classList.add('spawn-anim');
+  setTimeout(()=> stage.classList.remove('spawn-anim'), 360);
+}
+
+/* ---------- initial render ---------- */
+renderShop();
+renderList();
+renderPalette();
+drawBackground();
+drawOverlay();
+logEvent('system','Ready. If cyborgmap.png is in the same folder it will load automatically.');
+</script>
+<script>
+// === CONFIG ===
+const baselineBudget = 1000;      // set this to your starting budget
+const baseIntegration = 15;       // your starting integration %
+const perPercentCost = 5000;      // 5000 ⟡ = +1%
+
+// === STATE ===
+let integrationMode = localStorage.getItem("integrationMode") || "auto";
+let manualIntegration = parseInt(localStorage.getItem("manualIntegration") || baseIntegration);
+let budget = window.currentBudget || baselineBudget;
+
+// === DOM ===
+const gaugeFill = document.getElementById("gauge-fill");
+const integrationText = document.getElementById("integration-text");
+const integrationSub = document.getElementById("integration-sub");
+const toggleBtn = document.getElementById("toggle-mode");
+
+// === CORE FUNCTIONS ===
+function computeAutoIntegration(budgetVal) {
+  const gained = Math.max(0, budgetVal - baselineBudget);
+  return baseIntegration + Math.floor(gained / perPercentCost);
+}
+
+function computeProgress(budgetVal) {
+  const gained = Math.max(0, budgetVal - baselineBudget);
+  return Math.min(1, (gained % perPercentCost) / perPercentCost);
+}
+
+function renderIntegrationGauge() {
+  const current = integrationMode === "auto"
+    ? computeAutoIntegration(budget)
+    : manualIntegration;
+
+  const progress = computeProgress(budget);
+  const displayPercent = Math.min(100, ((current - baseIntegration) + progress) * 10);
+  const width = Math.round(180 * Math.min(1, displayPercent / 100));
+
+  gaugeFill.setAttribute("width", width);
+  integrationText.innerHTML = `<strong>Integration:</strong> ${baseIntegration}% → ${current}%`;
+
+  const nextThreshold =
+    baselineBudget +
+    (Math.floor((budget - baselineBudget) / perPercentCost) + 1) * perPercentCost;
+
+  integrationSub.textContent =
+    `Mode: ${integrationMode.charAt(0).toUpperCase() + integrationMode.slice(1)} • Next +1% at ${nextThreshold} ⟡`;
+
+  // Diagnostics event (optional)
+  if (window.logDiagnostics) {
+    window.logDiagnostics(
+      `[${new Date().toISOString()}] [system] integration:update budget:${budget} integration:${current}% mode:${integrationMode}`
+    );
+  }
+
+  // Dispatch event for other systems
+  window.dispatchEvent(new CustomEvent("integration:update", {
+    detail: { budget, integration: current, mode: integrationMode }
+  }));
+}
+
+// === MODE TOGGLE ===
+toggleBtn.addEventListener("click", () => {
+  integrationMode = integrationMode === "auto" ? "manual" : "auto";
+  toggleBtn.textContent = integrationMode === "auto" ? "Manual" : "Auto";
+  localStorage.setItem("integrationMode", integrationMode);
+
+  if (window.logDiagnostics) {
+    window.logDiagnostics(
+      `[${new Date().toISOString()}] [system] integration:modechange ${integrationMode}`
+    );
+  }
+
+  renderIntegrationGauge();
+});
+
+// === MANUAL MODE KEYBOARD ===
+window.addEventListener("keydown", (e) => {
+  if (integrationMode !== "manual") return;
+
+  if (e.key === "+" || e.key === "=") {
+    manualIntegration = Math.min(100, manualIntegration + 1);
+    localStorage.setItem("manualIntegration", manualIntegration);
+    renderIntegrationGauge();
+  }
+
+  if (e.key === "-") {
+    manualIntegration = Math.max(0, manualIntegration - 1);
+    localStorage.setItem("manualIntegration", manualIntegration);
+    renderIntegrationGauge();
+  }
+});
+
+// === EXTERNAL API ===
+window.updateIntegrationBudget = function(newBudget) {
+  budget = newBudget;
+  window.currentBudget = newBudget;
+  renderIntegrationGauge();
+};
+
+// === INITIAL RENDER ===
+renderIntegrationGauge();
+</script>
+
+</body>
+</html>
