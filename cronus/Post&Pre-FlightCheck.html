@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>USCSS Cronus — Four‑Deck Post‑Flight Inspection</title>
+<style>
+  :root{
+    --bg:#0f1720; --panel:#071827; --muted:#9aa6b2; --accent:#6ee7b7; --danger:#ff6b6b;
+    --card:#0b1220; --white:#ffffff; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial; margin:18px; background:linear-gradient(180deg,#07101a,#071827); color:#e6f0f2}
+  h1{font-size:20px;margin:0 0 8px}
+  p.lead{margin:0 0 14px;color:var(--muted)}
+  .layout{display:grid;grid-template-columns:360px 1fr;gap:14px;align-items:start}
+  .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:12px;border-radius:var(--radius);border:1px solid rgba(255,255,255,0.03)}
+  label{display:block;font-weight:600;margin-bottom:6px;color:var(--muted);font-size:13px}
+  input[type="text"], select, textarea{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);color:#e6f0f2}
+  textarea{min-height:80px;resize:vertical}
+  .row{display:flex;gap:8px;align-items:center}
+  .small{font-size:13px;color:var(--muted)}
+  .btn{padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--accent);cursor:pointer}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#7dd3fc);color:#042027;border:none}
+  .btn.warn{background:var(--danger);color:#fff;border:none}
+  .deck-list{display:flex;flex-direction:column;gap:8px}
+  .deck-card{padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);display:flex;justify-content:space-between;align-items:center}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .photos{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .photo-thumb{width:84px;height:64px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.04)}
+  .log{margin-top:12px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);max-height:220px;overflow:auto}
+  .report-list{margin-top:12px}
+  .chip{display:inline-block;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.02);font-weight:700}
+  .risk-high{color:#7a0b0b}
+  .risk-med{color:#7a5a00}
+  .risk-low{color:#0b6b4f}
+  .modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:60}
+  .modal{background:var(--white);color:#07101a;padding:14px;border-radius:10px;max-width:720px;width:100%}
+  .meta{font-size:13px;color:var(--muted);margin-top:6px}
+  @media (max-width:900px){ .layout{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+  <h1>USCSS Cronus — Post‑Flight Inspection</h1>
+  <p class="lead">Sieta's four‑deck inspection tool. Select a deck, run the checklist, attach photos and crew forms, tag risk, and save a timestamped deck report. High risk items trigger an auto‑alert draft for Dr. Rosa and General Cruz.</p>
+
+  <div class="layout">
+    <!-- Left: Deck selector & quick actions -->
+    <div class="panel">
+      <label>Inspector</label>
+      <input id="inspector" type="text" value="Sieta" />
+
+      <label style="margin-top:10px">Select deck</label>
+      <div class="deck-list" id="deckList">
+        <!-- deck cards injected here -->
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button id="openChecklist" class="btn primary">Open Checklist</button>
+        <button id="viewReports" class="btn">Reports</button>
+      </div>
+
+      <div class="log" id="auditLog" aria-live="polite">
+        <div class="small">Audit log</div>
+      </div>
+    </div>
+
+    <!-- Right: Checklist form -->
+    <div class="panel" id="formPanel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div id="deckTitle" style="font-weight:700">Deck: —</div>
+          <div class="meta" id="deckSubtitle">Select a deck to begin inspection</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="small">Risk</div>
+          <div id="riskChip" class="chip">—</div>
+        </div>
+      </div>
+
+      <hr style="margin:10px 0;border-color:rgba(255,255,255,0.03)" />
+
+      <div id="checklistArea" style="display:none">
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="margin:0">Start time</label>
+          <input id="startTime" type="text" readonly />
+          <label style="margin:0">End time</label>
+          <input id="endTime" type="text" readonly />
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Primary checks (quick status)</label>
+          <div class="form-grid">
+            <div>
+              <label class="small">Lighting / power nominal</label>
+              <select id="lighting" aria-label="lighting">
+                <option>Y</option><option>N</option>
+              </select>
+            </div>
+            <div>
+              <label class="small">Life‑support / air quality</label>
+              <select id="lifeSupport"><option>Y</option><option>N</option></select>
+            </div>
+            <div>
+              <label class="small">Structural integrity</label>
+              <select id="structural"><option>Y</option><option>N</option></select>
+            </div>
+            <div>
+              <label class="small">Critical systems nominal</label>
+              <select id="criticalSystems"><option>Y</option><option>N</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Rooms / Areas inspected (comma separated)</label>
+          <input id="areasInspected" type="text" placeholder="e.g., Cryo Chambers, Medlab, Workshop" />
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Attach crew forms (link patient files)</label>
+          <select id="crewAttach" multiple size="4" style="height:90px"></select>
+          <div class="small" style="margin-top:6px">Hold Ctrl/Cmd to select multiple crew forms.</div>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Photos / Evidence</label>
+          <input id="photoInput" type="file" accept="image/*" multiple />
+          <div class="photos" id="photoPreview"></div>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Risk level</label>
+          <div class="row">
+            <label><input name="risk" type="radio" value="Low" checked /> Low</label>
+            <label><input name="risk" type="radio" value="Medium" /> Medium</label>
+            <label><input name="risk" type="radio" value="High" /> High</label>
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Immediate actions taken</label>
+          <textarea id="actions" placeholder="e.g., Quarantine area, notify engineering"></textarea>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Notes</label>
+          <textarea id="notes" placeholder="Detailed observations, attach photo IDs or dot references"></textarea>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="startBtn" class="btn primary">Start Sweep</button>
+          <button id="endBtn" class="btn">End Sweep</button>
+          <button id="saveReport" class="btn primary">Save Report</button>
+          <button id="clearForm" class="btn">Clear</button>
+        </div>
+
+        <div class="report-list" id="reportList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: High Risk Alert -->
+  <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal" id="alertModal">
+      <h3 style="margin:0">High‑Risk Alert Draft</h3>
+      <div class="meta" id="alertMeta"></div>
+      <pre id="alertText" style="white-space:pre-wrap;margin-top:10px;background:#f3f4f6;padding:8px;border-radius:6px"></pre>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+        <button id="closeAlert" class="btn">Close</button>
+        <button id="copyAlert" class="btn primary">Copy Alert</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Crew list
+  const crew = [
+    "General Helena Cruz",
+    "Captain James Reed",
+    "Lieutenant Emily Patel",
+    "Sergeant Ryan Jenkins",
+    "Corporal Michael Lee",
+    "Lance Corporal Samantha Rodriguez",
+    "PFC Victor Garcia",
+    "Staff Sergeant Lisa Nguyen",
+    "Specialist Eric Thompson",
+    "Corporal Jasmine Singh",
+    "SFC Mark Taylor",
+    "LTJG David Kim",
+    "Master Sergeant Antonio Vasquez"
+  ];
+
+  // Deck definitions
+  const decks = [
+    { id: 'A', name: 'Deck A — Cryo Deck', priority: 'High', notes: 'Cryo Chambers, Medlab, Workshop, Armory, Barracks' },
+    { id: 'B', name: 'Deck B — Main Deck', priority: 'High', notes: 'Bridge, Science Sector, Mess, Living Area' },
+    { id: 'C', name: 'Deck C — Cargo Deck', priority: 'Critical', notes: 'Cargo Hold, Engine Room, EVA, Escape Pods' },
+    { id: 'D', name: 'Deck D — Vehicle Bay', priority: 'Medium', notes: 'Vehicle storage, parts, elevators' }
+  ];
+
+  // In-memory reports
+  const reports = [];
+
+  // DOM refs
+  const deckList = document.getElementById('deckList');
+  const crewAttach = document.getElementById('crewAttach');
+  const deckTitle = document.getElementById('deckTitle');
+  const deckSubtitle = document.getElementById('deckSubtitle');
+  const checklistArea = document.getElementById('checklistArea');
+  const startTime = document.getElementById('startTime');
+  const endTime = document.getElementById('endTime');
+  const photoInput = document.getElementById('photoInput');
+  const photoPreview = document.getElementById('photoPreview');
+  const riskChip = document.getElementById('riskChip');
+  const auditLog = document.getElementById('auditLog');
+  const modalBackdrop = document.getElementById('modalBackdrop');
+  const alertText = document.getElementById('alertText');
+  const alertMeta = document.getElementById('alertMeta');
+
+  // Initialize deck list and crew attach options
+  function init() {
+    decks.forEach((d, i) => {
+      const div = document.createElement('div');
+      div.className = 'deck-card';
+      div.innerHTML = `<div><strong>${d.name}</strong><div class="small">${d.notes}</div></div>
+        <div><button class="btn openDeck" data-index="${i}">Select</button></div>`;
+      deckList.appendChild(div);
+    });
+    crew.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      crewAttach.appendChild(opt);
+    });
+    attachHandlers();
+    log('Tool ready. Select a deck to begin.');
+  }
+
+  // Attach event handlers
+  function attachHandlers() {
+    document.querySelectorAll('.openDeck').forEach(b => b.addEventListener('click', (e) => {
+      const idx = Number(e.target.dataset.index);
+      selectDeck(idx);
+    }));
+    document.getElementById('openChecklist').addEventListener('click', () => {
+      const first = decks[0];
+      selectDeck(0);
+    });
+    document.getElementById('viewReports').addEventListener('click', renderReports);
+    document.getElementById('startBtn').addEventListener('click', startSweep);
+    document.getElementById('endBtn').addEventListener('click', endSweep);
+    document.getElementById('saveReport').addEventListener('click', saveReport);
+    document.getElementById('clearForm').addEventListener('click', clearForm);
+    photoInput.addEventListener('change', handlePhotos);
+    document.getElementById('closeAlert').addEventListener('click', () => modalBackdrop.style.display='none');
+    document.getElementById('copyAlert').addEventListener('click', copyAlertToClipboard);
+    document.getElementById('calcAllOdds')?.addEventListener('click', ()=>{}); // placeholder if present
+  }
+
+  let currentDeckIndex = null;
+
+  function selectDeck(idx) {
+    currentDeckIndex = idx;
+    const d = decks[idx];
+    deckTitle.textContent = `Deck: ${d.name}`;
+    deckSubtitle.textContent = d.notes;
+    checklistArea.style.display = 'block';
+    startTime.value = '';
+    endTime.value = '';
+    riskChip.textContent = '—';
+    riskChip.className = 'chip';
+    log(`Selected ${d.name}`);
+  }
+
+  function startSweep() {
+    if (currentDeckIndex === null) { alert('Select a deck first.'); return; }
+    startTime.value = new Date().toLocaleString();
+    log(`Sweep started on ${decks[currentDeckIndex].name} by ${document.getElementById('inspector').value}`);
+  }
+
+  function endSweep() {
+    if (!startTime.value) { alert('Start the sweep first.'); return; }
+    endTime.value = new Date().toLocaleString();
+    log(`Sweep ended on ${decks[currentDeckIndex].name}`);
+  }
+
+  function handlePhotos(e) {
+    photoPreview.innerHTML = '';
+    const files = Array.from(e.target.files || []);
+    files.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = document.createElement('img');
+        img.src = ev.target.result;
+        img.className = 'photo-thumb';
+        photoPreview.appendChild(img);
+      };
+      reader.readAsDataURL(f);
+    });
+  }
+
+  function getSelectedCrew() {
+    return Array.from(crewAttach.selectedOptions).map(o => o.value);
+  }
+
+  function determineRisk() {
+    const radios = document.getElementsByName('risk');
+    for (const r of radios) if (r.checked) return r.value;
+    return 'Low';
+  }
+
+  function saveReport() {
+    if (currentDeckIndex === null) { alert('Select a deck first.'); return; }
+    const d = decks[currentDeckIndex];
+    const report = {
+      deck: d.id,
+      deckName: d.name,
+      inspector: document.getElementById('inspector').value || 'Sieta',
+      start: startTime.value || new Date().toLocaleString(),
+      end: endTime.value || new Date().toLocaleString(),
+      lighting: document.getElementById('lighting').value,
+      lifeSupport: document.getElementById('lifeSupport').value,
+      structural: document.getElementById('structural').value,
+      criticalSystems: document.getElementById('criticalSystems').value,
+      areas: document.getElementById('areasInspected').value,
+      crewLinked: getSelectedCrew(),
+      photos: Array.from(photoPreview.querySelectorAll('img')).map((img,i)=>`photo#${i+1}`),
+      risk: determineRisk(),
+      actions: document.getElementById('actions').value,
+      notes: document.getElementById('notes').value,
+      savedAt: new Date().toLocaleString()
+    };
+    reports.push(report);
+    updateRiskChip(report.risk);
+    renderReports();
+    log(`Saved report for ${report.deckName} — Risk: ${report.risk}`);
+    if (report.risk === 'High') triggerHighRiskAlert(report);
+    // clear form but keep deck selected
+    // clearForm(); // optional
+  }
+
+  function updateRiskChip(risk) {
+    riskChip.textContent = risk;
+    riskChip.className = 'chip ' + (risk==='High' ? 'risk-high' : risk==='Medium' ? 'risk-med' : 'risk-low');
+  }
+
+  function renderReports() {
+    const list = document.getElementById('reportList');
+    list.innerHTML = '<h4>Saved Reports</h4>';
+    if (reports.length === 0) { list.innerHTML += '<div class="small">No reports yet.</div>'; return; }
+    reports.slice().reverse().forEach(r => {
+      const div = document.createElement('div');
+      div.style.padding='8px'; div.style.borderBottom='1px solid rgba(255,255,255,0.03)';
+      div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+        <div><strong>${r.deckName}</strong> <span class="small">(${r.savedAt})</span><div class="small">Inspector: ${r.inspector}</div></div>
+        <div style="text-align:right"><div class="small">Risk: <span style="font-weight:700">${r.risk}</span></div><button class="btn" data-id="${reports.indexOf(r)}">View</button></div>
+      </div>
+      <div class="small" style="margin-top:6px">${escapeHtml(r.notes || '—')}</div>`;
+      list.appendChild(div);
+      div.querySelector('button')?.addEventListener('click', () => showReportDetail(r));
+    });
+  }
+
+  function showReportDetail(r) {
+    const text = [
+      `Deck: ${r.deckName}`,
+      `Inspector: ${r.inspector}`,
+      `Start: ${r.start}`,
+      `End: ${r.end}`,
+      `Lighting: ${r.lighting}`,
+      `Life-support: ${r.lifeSupport}`,
+      `Structural: ${r.structural}`,
+      `Critical systems: ${r.criticalSystems}`,
+      `Areas: ${r.areas}`,
+      `Crew linked: ${r.crewLinked.join(', ') || '—'}`,
+      `Photos: ${r.photos.join(', ') || '—'}`,
+      `Risk: ${r.risk}`,
+      `Actions: ${r.actions || '—'}`,
+      `Notes: ${r.notes || '—'}`,
+      `Saved at: ${r.savedAt}`
+    ].join('\n');
+    alert(text);
+  }
+
+  function triggerHighRiskAlert(report) {
+    const header = `HIGH RISK — ${report.deckName}`;
+    const body = [
+      `${header}`,
+      `Inspector: ${report.inspector}`,
+      `Time: ${report.savedAt}`,
+      ``,
+      `Summary: High‑risk condition detected during post‑flight inspection.`,
+      `Areas: ${report.areas || '—'}`,
+      `Immediate actions: ${report.actions || '—'}`,
+      `Linked crew forms: ${report.crewLinked.join(', ') || '—'}`,
+      ``,
+      `Recommendation: Quarantine affected area, notify medical and engineering teams, and prepare medevac if needed.`,
+      ``,
+      `This message prepared for: Dr. Rosa (Medical) and General Helena Cruz (Command).`
+    ].join('\n');
+    alertMeta.textContent = `Deck: ${report.deckName} • Risk: HIGH • Generated: ${new Date().toLocaleString()}`;
+    alertText.textContent = body;
+    modalBackdrop.style.display = 'flex';
+    log(`High‑risk alert prepared for ${report.deckName}`);
+  }
+
+  function copyAlertToClipboard() {
+    navigator.clipboard.writeText(alertText.textContent).then(() => {
+      alert('Alert copied to clipboard.');
+    }).catch(() => alert('Unable to copy alert.'));
+  }
+
+  function clearForm() {
+    document.getElementById('areasInspected').value = '';
+    crewAttach.selectedIndex = -1;
+    photoInput.value = '';
+    photoPreview.innerHTML = '';
+    document.getElementById('actions').value = '';
+    document.getElementById('notes').value = '';
+    document.getElementById('lighting').value = 'Y';
+    document.getElementById('lifeSupport').value = 'Y';
+    document.getElementById('structural').value = 'Y';
+    document.getElementById('criticalSystems').value = 'Y';
+    document.querySelectorAll('input[name="risk"]').forEach(r=>r.checked = r.value==='Low');
+    updateRiskChip('—');
+    log('Form cleared');
+  }
+
+  function log(msg) {
+    const t = new Date().toLocaleString();
+    const entry = document.createElement('div');
+    entry.textContent = `[${t}] ${msg}`;
+    auditLog.prepend(entry);
+  }
+
+  function escapeHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // Initialize UI
+  init();
+</script>
+</body>
+</html>
