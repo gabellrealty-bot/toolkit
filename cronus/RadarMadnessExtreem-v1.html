@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Radar Madness – Five Killer Waves</title>
+
+  <style>
+    body {
+      margin: 0;
+      background: #020617;
+      color: #e5f0ff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+
+    /* LEFT UI PANEL */
+    #ui {
+      width: 340px;
+      padding: 16px;
+      box-sizing: border-box;
+      background: radial-gradient(circle at top, #111827 0, #020617 55%);
+      border-right: 1px solid #1f2937;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #93c5fd;
+    }
+
+    #subtitle {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    #status {
+      font-size: 13px;
+      line-height: 1.4;
+      color: #e5e7eb;
+      min-height: 60px;
+      border: 1px solid #1f2937;
+      padding: 8px;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    #controls {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    button {
+      padding: 7px 10px;
+      border-radius: 4px;
+      border: 1px solid #1d4ed8;
+      background: #1d4ed8;
+      color: #e5f0ff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    #metrics {
+      font-size: 12px;
+      color: #9ca3af;
+      white-space: pre-line;
+    }
+
+    #log {
+      flex: 1;
+      border-radius: 6px;
+      border: 1px solid #1f2937;
+      background: rgba(15, 23, 42, 0.9);
+      padding: 8px;
+      font-size: 11px;
+      overflow-y: auto;
+      white-space: pre-line;
+    }
+
+    /* CANVAS AREA */
+    #canvas-container {
+      flex: 1;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      background: radial-gradient(circle at top, #0b1120 0, #020617 60%);
+    }
+
+    canvas {
+      border-left: 1px solid #1f2937;
+      background: radial-gradient(circle at center, #020617 0, #020617 40%, #022c22 40%, #022c22 100%);
+    }
+
+    /* INFO POPUP */
+    #infoPopup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 480px;
+      padding: 0;
+      background: rgba(15, 23, 42, 0.97);
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      color: #e5e7eb;
+      font-size: 13px;
+      display: none;
+      z-index: 9999;
+      cursor: move; /* draggable by entire popup */
+    }
+
+    /* TAB BAR */
+    #infoTabs {
+      display: flex;
+      border-bottom: 1px solid #1f2937;
+      background: #0f172a;
+    }
+
+    .infoTab {
+      padding: 10px 14px;
+      cursor: pointer;
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+
+    .infoTab:hover {
+      background: #1e293b;
+    }
+
+    .activeTab {
+      background: #1e293b;
+      color: #93c5fd;
+      font-weight: 600;
+    }
+
+    /* TAB CONTENT */
+    #infoContent {
+      padding: 16px;
+      max-height: 320px;
+      overflow-y: auto;
+      white-space: pre-line;
+    }
+
+    /* NAVAL SYNC HUD BADGE */
+    .navalActiveHUD {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* =============================== */
+    /* NEW: TACTICAL SNAPSHOT POPUP   */
+    /* =============================== */
+
+    #tacticalPopup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 420px;
+      background: rgba(15, 23, 42, 0.97);
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 0;
+      color: #e5e7eb;
+      font-size: 13px;
+      display: none;
+      z-index: 10000;
+      cursor: move; /* draggable by entire popup */
+    }
+
+    #tacticalContent {
+      padding: 16px;
+      max-height: 260px;
+      overflow-y: auto;
+      white-space: pre-line;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    #tacticalActions {
+      padding: 12px;
+      border-top: 1px solid #1f2937;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .tacticalBtn {
+      padding: 6px 10px;
+      background: #1d4ed8;
+      border: 1px solid #1d4ed8;
+      border-radius: 4px;
+      color: #e5f0ff;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    #btnCloseTactical {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      background: #dc2626;
+      border: 1px solid #dc2626;
+      color: #fff;
+      padding: 2px 6px;
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- LEFT UI PANEL -->
+  <div id="ui">
+
+    <div id="title">RADAR MADNESS</div>
+    <div id="subtitle">Five killer waves. One continuous trial.</div>
+
+    <div id="status">Press START to begin the run.</div>
+
+    <!-- CONTROL BUTTONS -->
+    <div id="controls">
+
+      <button id="btnStart">Start Simulation</button>
+      <button id="btnPause" disabled>Pause</button>
+      <button id="btnResume" disabled>Resume</button>
+
+      <button id="btnEMP" disabled>EMP Counterpulse (North)</button>
+      <button id="btnSignal" disabled>Signal Stabilizer (East)</button>
+      <button id="btnSensor" disabled>Sensor Sweep (West)</button>
+
+      <button id="btnReset">Reset Run</button>
+
+      <!-- NEW: HOW TO PLAY BUTTON -->
+      <button id="btnHowTo">How to Play</button>
+
+      <div style="font-size:11px;color:#9ca3af;">
+        Tip: Click contacts on the radar to identify the decoy.
+      </div>
+    </div>
+
+    <!-- METRICS + LOG -->
+    <div id="metrics"></div>
+    <div id="log"></div>
+
+  </div>
+
+  <!-- RADAR CANVAS -->
+  <div id="canvas-container">
+    <canvas id="sim" width="720" height="420"></canvas>
+  </div>
+
+  <!-- TAB-BASED INFO POPUP -->
+  <div id="infoPopup">
+
+    <!-- TAB BAR -->
+    <div id="infoTabs">
+      <div class="infoTab activeTab" data-tab="howto">How to Play</div>
+      <div class="infoTab" data-tab="scoring">Scoring</div>
+      <div class="infoTab" data-tab="waves">Waves</div>
+    </div>
+
+    <!-- TAB CONTENT -->
+    <div id="infoContent">
+      <!-- Filled dynamically by script -->
+    </div>
+
+    <!-- CLOSE BUTTON -->
+    <div style="padding:12px;border-top:1px solid #1f2937;text-align:right;">
+      <button id="btnCloseInfo" style="
+        padding:6px 10px;
+        background:#1d4ed8;
+        border:1px solid #1d4ed8;
+        border-radius:4px;
+        color:#e5f0ff;
+        font-size:12px;
+        cursor:pointer;
+      ">Close</button>
+    </div>
+
+  </div>
+
+  <!-- =============================== -->
+  <!-- NEW: TACTICAL SNAPSHOT POPUP   -->
+  <!-- =============================== -->
+  <div id="tacticalPopup">
+
+    <!-- CLOSE BUTTON -->
+    <button id="btnCloseTactical">X</button>
+
+    <!-- SNAPSHOT TEXT -->
+    <div id="tacticalContent">
+      <!-- Filled dynamically by script -->
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div id="tacticalActions">
+      <!-- Filled dynamically by script -->
+    </div>
+
+  </div>
+
+</body>
+<script>
+function logActiveVectors() {
+  log("=== ACTIVE VECTOR REPORT ===");
+
+  const active = state.drones.filter(d => d.active && !d.neutralized);
+
+  if (active.length === 0) {
+    log("No active vectors.");
+    return;
+  }
+
+  active.forEach(d => {
+    const dx = CENTER.x - d.x;
+    const dy = CENTER.y - d.y;
+    const dist = Math.hypot(dx, dy);
+    const pct = Math.round(Math.max(0, Math.min(1, 1 - dist / 260)) * 100);
+
+    const side =
+      d.spawnSide === "north" ? "North" :
+      d.spawnSide === "east"  ? "East"  :
+      d.spawnSide === "west"  ? "West"  : "Unknown";
+
+    if (d.isDecoy) {
+      log(`DECOY: ${side} cluster, ${pct}% to core`);
+    } else {
+      const tele = d.telegraphing ? ", telegraphing" : "";
+      log(`${d.type} (${side}): ${pct}% to core${tele}`);
+    }
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+/* ============================================================
+   RADAR MADNESS — UNIFIED SCRIPT
+   CORE ENGINE • STATE • WAVE SYSTEM • NAVAL • UI • SNAPSHOT
+   ============================================================ */
+
+const canvas = document.getElementById("sim");
+const ctx = canvas.getContext("2d");
+
+const statusEl = document.getElementById("status");
+const logEl = document.getElementById("log");
+const metricsEl = document.getElementById("metrics");
+
+const btnStart = document.getElementById("btnStart");
+const btnPause = document.getElementById("btnPause");
+const btnResume = document.getElementById("btnResume");
+const btnEMP = document.getElementById("btnEMP");
+const btnSignal = document.getElementById("btnSignal");
+const btnSensor = document.getElementById("btnSensor");
+const btnReset = document.getElementById("btnReset");
+
+const btnHowTo = document.getElementById("btnHowTo");
+const infoPopup = document.getElementById("infoPopup");
+const infoContent = document.getElementById("infoContent");
+const btnCloseInfo = document.getElementById("btnCloseInfo");
+const infoTabs = document.querySelectorAll(".infoTab");
+
+/* NEW: Tactical popup hooks */
+const tacticalPopup = document.getElementById("tacticalPopup");
+const tacticalContent = document.getElementById("tacticalContent");
+const tacticalActions = document.getElementById("tacticalActions");
+const btnCloseTactical = document.getElementById("btnCloseTactical");
+
+const CENTER = { x: canvas.width / 2, y: canvas.height / 2 };
+
+/* ============================================================
+   WAVE DURATIONS (with +120s extension)
+   ============================================================ */
+const WAVE_DURATIONS = [160, 165, 175, 185, 195];
+const TOTAL_WAVES = 5;
+
+/* ============================================================
+   DRONE ACTIVATION TIMES
+   ============================================================ */
+const ACT_NORTH = 5;
+const ACT_EAST = 10;
+const ACT_WEST = 15;
+const ACT_DECOY_MIN = 20;
+const ACT_DECOY_MAX = 25;
+
+/* ============================================================
+   MOVEMENT + STRESS CONSTANTS
+   ============================================================ */
+const DRONE_SPEED = 40;
+const INNER_RADIUS = 80;
+
+const STRESS_DECAY_PER_SEC = 1;
+const STRESS_RECOVER_ON_GOOD = 4;
+const STRESS_PENALTY_LATE = 8;
+const STRESS_PENALTY_MISID = 10;
+
+/* ============================================================
+   SCORING CONSTANTS
+   ============================================================ */
+const SCORE_NEUTRALIZE = 150;
+const SCORE_TIMING_BONUS = 100;
+const SCORE_DECOY_CORRECT = 200;
+const SCORE_MISID_PENALTY = 100;
+const SCORE_RETALIATION_CANCEL = 50;
+const SCORE_RETALIATION_HIT_PENALTY = 25;
+const SCORE_OVERLAP_RETALIATION_PENALTY = 50;
+const SCORE_PERFECT_RUN_BONUS = 500;
+
+/* ============================================================
+   NAVAL COORDINATION CONSTANTS
+   ============================================================ */
+const NAVAL_WINDOW_MIN_W4 = 30;
+const NAVAL_WINDOW_MAX_W4 = 120;
+const NAVAL_WINDOW_MIN_W5 = 20;
+const NAVAL_WINDOW_MAX_W5 = 150;
+
+const NAVAL_WINDOW_DURATION_W4 = 6;
+const NAVAL_WINDOW_DURATION_W5 = 8;
+
+const NAVAL_COOLDOWN_MIN_W4 = 30;
+const NAVAL_COOLDOWN_MAX_W4 = 45;
+const NAVAL_COOLDOWN_MIN_W5 = 20;
+const NAVAL_COOLDOWN_MAX_W5 = 30;
+
+/* ============================================================
+   SIMULATION STATE
+   ============================================================ */
+let simTime = 0;
+let lastTime = null;
+let simRunning = false;
+let simPaused = false;
+
+let currentWave = 0;
+let waveStartTime = 0;
+
+/* NAVAL WINDOW STATE */
+let navalWindowActive = false;
+let navalWindowTimer = 0;
+let navalCooldownTimer = 0;
+let nextNavalTrigger = null;
+
+/* MAIN STATE OBJECT */
+const state = {
+  stress: 100,
+  outcome: null,
+  logs: [],
+  drones: [],
+  decoyId: null,
+  decoyIdentified: false,
+  misIdCount: 0,
+  empCooldown: 0,
+  signalCooldown: 0,
+  sensorCooldown: 0,
+  score: 0,
+  anyReachedInner: false,
+  anyRetaliationHit: false,
+};
+
+/* ============================================================
+   LOGGING + STATUS
+   ============================================================ */
+function log(msg) {
+  const t = simTime.toFixed(1).padStart(5, "0");
+  state.logs.unshift(`[${t}s] ${msg}`);
+  logEl.textContent = state.logs.join("\n");
+}
+
+function updateStatus(msg) {
+  statusEl.textContent = msg;
+}
+
+function updateMetrics() {
+  const activeJams = state.drones.filter(
+    d => d.active && d.jamming && !d.neutralized && !d.isDecoy
+  );
+
+  metricsEl.textContent =
+    `Sim Time: ${simTime.toFixed(1)}s\n` +
+    `Wave: ${currentWave + 1}/${TOTAL_WAVES}\n` +
+    `Stress Index: ${state.stress.toFixed(0)}\n` +
+    `Active Jamming Vectors: ${activeJams.length}\n` +
+    `Decoy Identified: ${state.decoyIdentified ? "YES" : "NO"}`;
+}
+
+/* ============================================================
+   DRONE CREATION
+   ============================================================ */
+function makeDrone(id, type, spawnSide, activationTime, isDecoy = false) {
+  let x, y;
+
+  if (spawnSide === "north") {
+    x = CENTER.x; y = -20;
+  } else if (spawnSide === "east") {
+    x = canvas.width + 20; y = CENTER.y;
+  } else if (spawnSide === "west") {
+    x = -20; y = CENTER.y;
+  } else {
+    x = canvas.width + 20; y = CENTER.y - 120;
+  }
+
+  return {
+    id,
+    type,
+    spawnSide,
+    activationTime,
+    x,
+    y,
+    radius: 10,
+    active: false,
+    jamming: false,
+    neutralized: false,
+    reachedInner: false,
+    isDecoy,
+    retaliationTimer: 0,
+    retaliationCooldown: 0,
+    telegraphing: false,
+  };
+}
+
+/* ============================================================
+   RESET STATE
+   ============================================================ */
+function resetState() {
+  simTime = 0;
+  lastTime = null;
+  simRunning = false;
+  simPaused = false;
+
+  currentWave = 0;
+  waveStartTime = 0;
+
+  navalWindowActive = false;
+  navalWindowTimer = 0;
+  navalCooldownTimer = 0;
+  nextNavalTrigger = null;
+
+  state.stress = 100;
+  state.outcome = null;
+  state.logs = [];
+  state.drones = [];
+  state.decoyIdentified = false;
+  state.misIdCount = 0;
+  state.empCooldown = 0;
+  state.signalCooldown = 0;
+  state.sensorCooldown = 0;
+  state.score = 0;
+  state.anyReachedInner = false;
+  state.anyRetaliationHit = false;
+
+  logEl.textContent = "";
+  updateStatus("Press START to begin the run.");
+  updateMetrics();
+}
+
+/* ============================================================
+   WAVE INITIALIZATION
+   ============================================================ */
+function initWave(waveIndex) {
+  state.drones = [];
+  state.decoyIdentified = false;
+  state.misIdCount = 0;
+  state.anyReachedInner = false;
+  state.anyRetaliationHit = false;
+
+  const baseNorth = makeDrone("north", "EMP", "north", ACT_NORTH);
+  const baseEast = makeDrone("east", "SIGNAL", "east", ACT_EAST);
+  const baseWest = makeDrone("west", "SENSOR", "west", ACT_WEST);
+
+  const decoyActivation = ACT_DECOY_MIN + Math.random() * (ACT_DECOY_MAX - ACT_DECOY_MIN);
+  const decoy = makeDrone("decoy", "DECOY", "east", decoyActivation, true);
+
+  state.drones.push(baseNorth, baseEast, baseWest, decoy);
+  state.decoyId = decoy.id;
+
+  if (waveIndex >= 2) {
+    const extraCount = waveIndex === 2 ? 1 : waveIndex === 3 ? 2 : 3;
+    for (let i = 0; i < extraCount; i++) {
+      state.drones.push(makeDrone(`north_f${i}`, "EMP", "north", ACT_NORTH + 5 + i * 3));
+      state.drones.push(makeDrone(`east_f${i}`, "SIGNAL", "east", ACT_EAST + 5 + i * 3));
+      state.drones.push(makeDrone(`west_f${i}`, "SENSOR", "west", ACT_WEST + 5 + i * 3));
+    }
+  }
+
+  if (waveIndex === 3) {
+    nextNavalTrigger = NAVAL_WINDOW_MIN_W4 + Math.random() * (NAVAL_WINDOW_MAX_W4 - NAVAL_WINDOW_MIN_W4);
+  } else if (waveIndex === 4) {
+    nextNavalTrigger = NAVAL_WINDOW_MIN_W5 + Math.random() * (NAVAL_WINDOW_MAX_W5 - NAVAL_WINDOW_MIN_W5);
+  } else {
+    nextNavalTrigger = null;
+  }
+
+  waveStartTime = simTime;
+}
+
+/* ============================================================
+   START / ADVANCE / END WAVES
+   ============================================================ */
+function startWave(waveIndex) {
+  currentWave = waveIndex;
+  initWave(waveIndex);
+}
+
+function advanceWave() {
+  if (currentWave < TOTAL_WAVES - 1) {
+    currentWave++;
+    initWave(currentWave);
+    log(`--- WAVE ${currentWave + 1}/${TOTAL_WAVES} ---`);
+    updateStatus(`Wave ${currentWave + 1} in progress.`);
+  } else {
+    endRun();
+  }
+}
+
+function endRun() {
+  simRunning = false;
+
+  state.score += Math.max(0, Math.floor(state.stress));
+
+  if (!state.anyReachedInner && state.misIdCount === 0 && !state.anyRetaliationHit) {
+    state.score += SCORE_PERFECT_RUN_BONUS;
+    log("PERFECT RUN BONUS AWARDED.");
+  }
+
+  updateStatus("Run complete. Check the score report in the log.");
+  log("=== RADAR MADNESS — SCORE REPORT ===");
+  log(`Final Wave Reached: ${currentWave + 1}/${TOTAL_WAVES}`);
+  log(`Final Stress Index: ${state.stress.toFixed(0)}`);
+  log(`FINAL SCORE: ${state.score}`);
+}
+
+/* ============================================================
+   DRAGGABLE POPUPS (INFO + TACTICAL)
+   ============================================================ */
+function makeDraggable(popup) {
+  let offsetX = 0, offsetY = 0;
+  let isDragging = false;
+
+  popup.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    offsetX = e.clientX - popup.offsetLeft;
+    offsetY = e.clientY - popup.offsetTop;
+    popup.style.transform = "none";
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    popup.style.left = (e.clientX - offsetX) + "px";
+    popup.style.top = (e.clientY - offsetY) + "px";
+  });
+
+  document.addEventListener("mouseup", () => {
+    isDragging = false;
+  });
+}
+
+makeDraggable(infoPopup);
+makeDraggable(tacticalPopup);
+
+/* ============================================================
+   PAUSE / RESUME HELPERS
+   ============================================================ */
+function pauseGame() {
+  if (!simRunning || simPaused) return;
+  simPaused = true;
+  btnPause.disabled = true;
+  btnResume.disabled = false;
+  updateStatus("Simulation paused.");
+}
+
+function resumeGame() {
+  if (!simRunning || !simPaused) return;
+  simPaused = false;
+  btnPause.disabled = false;
+  btnResume.disabled = true;
+  updateStatus("Simulation resumed.");
+}
+
+/* ============================================================
+   START / PAUSE / RESET BUTTONS
+   ============================================================ */
+btnStart.addEventListener("click", () => {
+  if (simRunning) return;
+  simRunning = true;
+  simPaused = false;
+
+  btnStart.disabled = true;
+  btnPause.disabled = false;
+  btnResume.disabled = true;
+
+  btnEMP.disabled = false;
+  btnSignal.disabled = false;
+  btnSensor.disabled = false;
+
+  startWave(0);
+  log('MRL: "Helena, Radar Madness prototype is live. Five waves. Hold the thread."');
+  updateStatus("Simulation running. Wave 1 in progress.");
+});
+
+/* MODE S1 — Pause → auto Tactical Snapshot */
+btnPause.addEventListener("click", () => {
+  if (!simRunning || simPaused) return;
+
+  pauseGame();
+
+  // NEW: Log active vectors first
+  logActiveVectors();
+
+  // NEW: Log action menu second
+  logActionMenu();
+
+  // Popup stays exactly as-is
+  openTacticalPopup();
+});
+
+
+btnResume.addEventListener("click", () => {
+  resumeGame();
+});
+
+btnReset.addEventListener("click", () => {
+  resetState();
+  btnStart.disabled = false;
+  btnPause.disabled = true;
+  btnResume.disabled = true;
+  btnEMP.disabled = true;
+  btnSignal.disabled = true;
+  btnSensor.disabled = true;
+});
+
+/* ============================================================
+   RAF LOOP — TIMEKEEPING
+   ============================================================ */
+function loop(timestamp) {
+  if (!lastTime) lastTime = timestamp;
+  const dt = (timestamp - lastTime) / 1000;
+  lastTime = timestamp;
+
+  update(dt);
+  draw();
+
+  requestAnimationFrame(loop);
+}
+
+resetState();
+requestAnimationFrame(loop);
+
+/* ============================================================
+   DRONE ACTIVATION + MOVEMENT
+   ============================================================ */
+function activateDrone(drone) {
+  if (drone.active) return;
+  drone.active = true;
+
+  if (!drone.isDecoy) {
+    drone.jamming = true;
+
+    if (drone.type === "EMP") {
+      log("North vector online: EMP interference detected.");
+    } else if (drone.type === "SIGNAL") {
+      log("East vector online: signal scrambling detected.");
+    } else if (drone.type === "SENSOR") {
+      log("West vector online: sensor fog detected.");
+    }
+
+    if (currentWave >= 1) {
+      drone.retaliationCooldown = 3 + Math.random() * 3;
+    }
+  } else {
+    log("New contact: signature inconsistent. Possible decoy.");
+  }
+}
+
+function updateDrone(drone, dt) {
+  if (!drone.active || drone.neutralized) return;
+
+  const dx = CENTER.x - drone.x;
+  const dy = CENTER.y - drone.y;
+  const dist = Math.hypot(dx, dy);
+
+  if (dist > INNER_RADIUS) {
+    drone.x += (dx / dist) * DRONE_SPEED * dt;
+    drone.y += (dy / dist) * DRONE_SPEED * dt;
+  } else if (!drone.reachedInner) {
+    drone.reachedInner = true;
+    if (!drone.isDecoy && drone.jamming) {
+      state.stress -= STRESS_PENALTY_LATE;
+      state.anyReachedInner = true;
+      log(`MRL: "${drone.type} jamming reached inner radius before countering."`);
+    }
+  }
+
+  if (!drone.isDecoy && currentWave >= 1 && !drone.neutralized) {
+    if (drone.telegraphing) {
+      drone.retaliationTimer -= dt;
+      if (drone.retaliationTimer <= 0) {
+        fireRetaliation(drone);
+        drone.telegraphing = false;
+        drone.retaliationCooldown = 5 + Math.random() * 5;
+      }
+    } else {
+      drone.retaliationCooldown -= dt;
+      if (drone.retaliationCooldown <= 0) {
+        drone.telegraphing = true;
+        drone.retaliationTimer = 0.75;
+      }
+    }
+  }
+}
+
+/* ============================================================
+   RETALIATION RESOLUTION
+   ============================================================ */
+function fireRetaliation(drone) {
+  state.anyRetaliationHit = true;
+  state.stress -= 3;
+  state.score -= SCORE_RETALIATION_HIT_PENALTY;
+
+  if (currentWave >= 3) {
+    state.stress -= 2;
+  }
+
+  if (drone.type === "EMP") {
+    log("Retaliation: EMP pulse hits the console. Cooldowns feel sluggish.");
+    state.empCooldown += 1;
+  } else if (drone.type === "SIGNAL") {
+    log("Retaliation: signal burst scrambles recon feed.");
+  } else if (drone.type === "SENSOR") {
+    log("Retaliation: fog surge degrades sensor clarity.");
+  }
+}
+
+/* ============================================================
+   PASSIVE STRESS + COOLDOWNS
+   ============================================================ */
+function applyPassiveStress(dt) {
+  const activeJams = state.drones.filter(
+    d => d.active && d.jamming && !d.neutralized && !d.isDecoy
+  );
+  if (activeJams.length > 0) {
+    let factor = 1;
+    if (currentWave >= 3) factor = 1.5;
+    if (currentWave >= 4) factor = 2;
+    state.stress -= STRESS_DECAY_PER_SEC * dt * activeJams.length * factor;
+  }
+}
+
+function updateCooldowns(dt) {
+  state.empCooldown = Math.max(0, state.empCooldown - dt);
+  state.signalCooldown = Math.max(0, state.signalCooldown - dt);
+  state.sensorCooldown = Math.max(0, state.sensorCooldown - dt);
+
+  btnEMP.disabled = state.empCooldown > 0 || !simRunning || simPaused;
+  btnSignal.disabled = state.signalCooldown > 0 || !simRunning || simPaused;
+  btnSensor.disabled = state.sensorCooldown > 0 || !simRunning || simPaused;
+}
+
+/* ============================================================
+   NAVAL COORDINATION WINDOWS
+   ============================================================ */
+function startNavalWindow() {
+  navalWindowActive = true;
+
+  if (currentWave === 3) {
+    navalWindowTimer = NAVAL_WINDOW_DURATION_W4;
+    log('MRL: "Bluefin aligned. Naval sync window open — widen your counters."');
+  } else if (currentWave === 4) {
+    navalWindowTimer = NAVAL_WINDOW_DURATION_W5;
+    log('MRL: "Destroyer corridor stable. Naval sync active — use it well."');
+  }
+}
+
+function scheduleNextNavalWindow() {
+  if (currentWave === 3) {
+    const cd = NAVAL_COOLDOWN_MIN_W4 +
+      Math.random() * (NAVAL_COOLDOWN_MAX_W4 - NAVAL_COOLDOWN_MIN_W4);
+    nextNavalTrigger = (simTime - waveStartTime) + cd;
+  } else if (currentWave === 4) {
+    const cd = NAVAL_COOLDOWN_MIN_W5 +
+      Math.random() * (NAVAL_COOLDOWN_MAX_W5 - NAVAL_COOLDOWN_MIN_W5);
+    nextNavalTrigger = (simTime - waveStartTime) + cd;
+  } else {
+    nextNavalTrigger = null;
+  }
+}
+
+function updateNavalWindow(dt) {
+  if (currentWave < 3) return;
+
+  const elapsedWaveTime = simTime - waveStartTime;
+
+  if (!navalWindowActive && nextNavalTrigger !== null &&
+      elapsedWaveTime >= nextNavalTrigger) {
+    startNavalWindow();
+    scheduleNextNavalWindow();
+  }
+
+  if (navalWindowActive) {
+    navalWindowTimer -= dt;
+    if (navalWindowTimer <= 0) {
+      navalWindowActive = false;
+      log('MRL: "Naval sync window closed. Back to local counters."');
+    }
+  }
+}
+
+/* ============================================================
+   COUNTER HANDLERS (WITH NAVAL BUFFS)
+   ============================================================ */
+function handleEMP() {
+  if (!simRunning || simPaused || state.empCooldown > 0) return;
+  state.empCooldown = 4;
+
+  let candidates = state.drones.filter(
+    d => d.type === "EMP" && d.active && !d.neutralized
+  );
+
+  if (candidates.length > 0) {
+    let affected = [];
+
+    if (navalWindowActive) {
+      affected = candidates;
+    } else {
+      affected = [candidates[0]];
+    }
+
+    let totalNeutralized = 0;
+
+    affected.forEach(target => {
+      if (target.neutralized) return;
+      const wasTelegraphing = target.telegraphing;
+
+      target.jamming = false;
+      target.neutralized = true;
+      target.telegraphing = false;
+
+      state.score += SCORE_NEUTRALIZE;
+      if (!target.reachedInner) {
+        state.score += SCORE_TIMING_BONUS;
+      }
+      totalNeutralized++;
+
+      if (wasTelegraphing) {
+        state.score += SCORE_RETALIATION_CANCEL;
+        state.stress = Math.min(100, state.stress + 2);
+        log("Retaliation canceled mid-telegraph.");
+      }
+    });
+
+    if (totalNeutralized > 0) {
+      let stressGain = STRESS_RECOVER_ON_GOOD;
+      if (navalWindowActive) stressGain += 2;
+      state.stress = Math.min(100, state.stress + stressGain);
+
+      if (navalWindowActive && totalNeutralized > 1) {
+        state.score += 50;
+        log('MRL: "Naval sync amplified your EMP counterpulse."');
+      }
+
+      log('You: "EMP Counterpulse fired. North interference stabilized."');
+    }
+  } else {
+    state.stress -= 2;
+    log("EMP Counterpulse fired with no active interference.");
+  }
+}
+
+function handleSignal() {
+  if (!simRunning || simPaused || state.signalCooldown > 0) return;
+  state.signalCooldown = 4;
+
+  let candidates = state.drones.filter(
+    d => d.type === "SIGNAL" && d.active && !d.neutralized
+  );
+
+  if (candidates.length > 0) {
+    let affected = [];
+
+    if (navalWindowActive && candidates.length > 1) {
+      affected = candidates.slice(0, 2);
+    } else {
+      affected = [candidates[0]];
+    }
+
+    let totalNeutralized = 0;
+
+    affected.forEach(target => {
+      if (target.neutralized) return;
+      const wasTelegraphing = target.telegraphing;
+
+      target.jamming = false;
+      target.neutralized = true;
+      target.telegraphing = false;
+
+      state.score += SCORE_NEUTRALIZE;
+      if (!target.reachedInner) {
+        state.score += SCORE_TIMING_BONUS;
+      }
+      totalNeutralized++;
+
+      if (wasTelegraphing) {
+        state.score += SCORE_RETALIATION_CANCEL;
+        state.stress = Math.min(100, state.stress + 2);
+        log("Retaliation canceled mid-telegraph.");
+      }
+    });
+
+    if (totalNeutralized > 0) {
+      let stressGain = STRESS_RECOVER_ON_GOOD;
+      if (navalWindowActive) stressGain += 2;
+      state.stress = Math.min(100, state.stress + stressGain);
+
+      if (navalWindowActive && totalNeutralized > 1) {
+        state.score += 50;
+        log('MRL: "Naval sync extended your stabilizer corridor."');
+      }
+
+      log('You: "Signal Stabilizer engaged. East scramble resolved."');
+    }
+  } else {
+    state.stress -= 2;
+    log("Signal Stabilizer fired with no active scramble.");
+  }
+}
+
+function handleSensor() {
+  if (!simRunning || simPaused || state.sensorCooldown > 0) return;
+  state.sensorCooldown = 4;
+
+  let candidates = state.drones.filter(
+    d => d.type === "SENSOR" && d.active && !d.neutralized
+  );
+
+  if (candidates.length > 0) {
+    let affected = [];
+
+    if (navalWindowActive) {
+      affected = candidates;
+    } else {
+      affected = [candidates[0]];
+    }
+
+    let totalNeutralized = 0;
+
+    affected.forEach(target => {
+      if (target.neutralized) return;
+      const wasTelegraphing = target.telegraphing;
+
+      target.jamming = false;
+      target.neutralized = true;
+      target.telegraphing = false;
+
+      state.score += SCORE_NEUTRALIZE;
+      if (!target.reachedInner) {
+        state.score += SCORE_TIMING_BONUS;
+      }
+      totalNeutralized++;
+
+      if (wasTelegraphing) {
+        state.score += SCORE_RETALIATION_CANCEL;
+        state.stress = Math.min(100, state.stress + 2);
+        log("Retaliation canceled mid-telegraph.");
+      }
+    });
+
+    if (totalNeutralized > 0) {
+      let stressGain = STRESS_RECOVER_ON_GOOD;
+      if (navalWindowActive) stressGain += 2;
+      state.stress = Math.min(100, state.stress + stressGain);
+
+      if (navalWindowActive && totalNeutralized > 1) {
+        state.score += 50;
+        log('MRL: "Naval sync cleared multiple fog banks at once."');
+      }
+
+      log('You: "Sensor Sweep executed. West fog cleared."');
+    }
+  } else {
+    state.stress -= 2;
+    log("Sensor Sweep executed with no fog present.");
+  }
+}
+
+btnEMP.addEventListener("click", handleEMP);
+btnSignal.addEventListener("click", handleSignal);
+btnSensor.addEventListener("click", handleSensor);
+
+/* ============================================================
+   DECOY IDENTIFICATION
+   ============================================================ */
+canvas.addEventListener("click", evt => {
+  if (!simRunning || simPaused) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = evt.clientX - rect.left;
+  const my = evt.clientY - rect.top;
+
+  let clicked = null;
+  for (const d of state.drones) {
+    if (!d.active) continue;
+    const dist = Math.hypot(mx - d.x, my - d.y);
+    if (dist <= d.radius + 6) {
+      clicked = d;
+      break;
+    }
+  }
+  if (!clicked) return;
+
+  if (clicked.isDecoy) {
+    if (!state.decoyIdentified) {
+      state.decoyIdentified = true;
+      state.score += SCORE_DECOY_CORRECT;
+      log('You: "Contact flagged as decoy."');
+    }
+  } else {
+    state.misIdCount += 1;
+    state.stress -= STRESS_PENALTY_MISID;
+    state.score -= SCORE_MISID_PENALTY;
+    log('MRL: "That was a live vector, not a decoy."');
+  }
+});
+
+/* ============================================================
+   RUN STATE CHECKS
+   ============================================================ */
+function checkRunState() {
+  if (!simRunning || simPaused) return;
+
+  if (state.stress <= 0) {
+    state.stress = 0;
+    simRunning = false;
+    updateStatus("Stress Index collapsed. Run failed.");
+    log('MRL: "You lost the thread. Reset and try again."');
+    return;
+  }
+
+  const elapsedWaveTime = simTime - waveStartTime;
+  if (elapsedWaveTime >= WAVE_DURATIONS[currentWave]) {
+    advanceWave();
+  }
+}
+
+/* ============================================================
+   UPDATE LOOP (LOGIC ONLY)
+   ============================================================ */
+function update(dt) {
+  if (!simRunning || simPaused) return;
+
+  simTime += dt;
+
+  for (const d of state.drones) {
+    if (!d.active && simTime - waveStartTime >= d.activationTime) {
+      activateDrone(d);
+    }
+    updateDrone(d, dt);
+  }
+
+  applyPassiveStress(dt);
+  updateCooldowns(dt);
+  updateNavalWindow(dt);
+  checkRunState();
+  updateMetrics();
+}
+
+/* ============================================================
+   INFO TEXT FOR TABS
+   ============================================================ */
+const INFO_TEXT = {
+  howto: `
+Radar Madness is a real-time tactical pressure simulator built around a single,
+continuous five-wave gauntlet. You play as Helena, an operator inside an MRL
+prototype console, managing escalating multi-vector threats under extreme load.
+
+OBJECTIVES:
+• Neutralize EMP, Signal, and Sensor vectors
+• Identify the decoy by clicking it
+• Cancel retaliation telegraphs for bonus score
+• Prevent vectors from reaching the inner radius
+• Maintain the Stress Index above zero
+• Survive all five waves
+
+HUD:
+WAVE X/5 — SCORE XXXX
+Stress Bar shows your remaining stability.
+
+Every decision matters. Every second counts.
+Survive all five waves to beat Radar Madness.
+`,
+
+  scoring: `
+SCORING SYSTEM:
+
+• Neutralize any vector .............. +150
+• Timing bonus (before inner radius) . +100
+• Correct decoy identification ........ +200
+• Stress bonus (end of run) .......... +1 per stress point
+• Retaliation cancel bonus ........... +50
+
+PENALTIES:
+• Misidentification .................. -100
+• Retaliation hit .................... -25
+• Overlapping retaliation ............ -50
+
+PERFECT RUN BONUS:
+• No late counters
+• No misidentifications
+• No retaliation hits
+• All vectors neutralized
+• Decoy identified
+
+Perfect Run Bonus: +500
+`,
+
+  waves: `
+WAVE STRUCTURE:
+
+WAVE 1 — Training
+• Three vectors
+• One decoy
+• No retaliation
+
+WAVE 2 — Retaliation Begins
+• EMP pulses
+• Signal bursts
+• Fog surges
+
+WAVE 3 — Fleets Arrive
+• Multiple drones per vector
+• Coordinated jamming
+
+WAVE 4 — Exponential Chaos
+• Overlapping retaliation
+• Heavy jamming
+• Faster stress decay
+• First naval support windows
+
+WAVE 5 — Killer Wave
+• Full system pressure
+• More frequent naval sync
+• Survive to win
+`
+};
+
+/* ============================================================
+   INFO POPUP + TABS LOGIC
+   ============================================================ */
+function showInfoTab(name) {
+  infoTabs.forEach(t => t.classList.remove("activeTab"));
+  const active = document.querySelector(`.infoTab[data-tab="${name}"]`);
+  if (active) active.classList.add("activeTab");
+  infoContent.textContent = INFO_TEXT[name] || "";
+}
+
+btnHowTo.addEventListener("click", () => {
+  showInfoTab("howto");
+  infoPopup.style.display = "block";
+});
+
+btnCloseInfo.addEventListener("click", () => {
+  infoPopup.style.display = "none";
+  /* Does NOT auto-resume */
+});
+
+infoTabs.forEach(tab => {
+  tab.addEventListener("click", () => {
+    const tabName = tab.getAttribute("data-tab");
+    showInfoTab(tabName);
+  });
+});
+
+/* ============================================================
+   GLYPH RENDERING
+   ============================================================ */
+function drawGlyph(drone) {
+  ctx.save();
+  ctx.translate(drone.x, drone.y);
+
+  if (drone.isDecoy) {
+    const flickerBase = state.decoyIdentified ? 1 : 0.4 + 0.4 * Math.sin(simTime * 6);
+    const navalBoost = navalWindowActive ? 0.2 : 0;
+    const flicker = Math.min(1, flickerBase + navalBoost);
+
+    ctx.globalAlpha = flicker;
+    ctx.strokeStyle = "rgba(229,231,235,0.9)";
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(0, -drone.radius);
+    ctx.lineTo(drone.radius, drone.radius);
+    ctx.lineTo(-drone.radius, drone.radius);
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.restore();
+    return;
+  }
+
+  const telegraphBoost = drone.telegraphing ? 1.3 : 1;
+
+  if (drone.type === "EMP") {
+    ctx.strokeStyle = "rgba(96,165,250,0.9)";
+    ctx.shadowColor = "rgba(96,165,250,0.6)";
+    ctx.shadowBlur = 8 * telegraphBoost;
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.arc(0, 0, drone.radius + 6, 0.2, Math.PI * 1.8);
+    ctx.stroke();
+
+    for (let i = 0; i < 3; i++) {
+      const angle = i * (Math.PI * 2 / 3) + simTime * 0.5;
+      const x1 = Math.cos(angle) * (drone.radius + 2);
+      const y1 = Math.sin(angle) * (drone.radius + 2);
+      const x2 = Math.cos(angle) * (drone.radius + 10);
+      const y2 = Math.sin(angle) * (drone.radius + 10);
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+  } else if (drone.type === "SIGNAL") {
+    ctx.strokeStyle = "rgba(250,204,21,0.9)";
+    ctx.shadowColor = "rgba(250,204,21,0.6)";
+    ctx.shadowBlur = 8 * telegraphBoost;
+    ctx.lineWidth = 2;
+
+    const pulse = 1 + 0.2 * Math.sin(simTime * 3);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, drone.radius * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, (drone.radius + 6) * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(-drone.radius - 4, -drone.radius - 4);
+    ctx.lineTo(drone.radius + 4, drone.radius + 4);
+    ctx.stroke();
+  } else if (drone.type === "SENSOR") {
+    ctx.strokeStyle = "rgba(34,197,94,0.9)";
+    ctx.shadowColor = "rgba(34,197,94,0.6)";
+    ctx.shadowBlur = 8 * telegraphBoost;
+    ctx.lineWidth = 2;
+
+    const breathe = 0.8 + 0.2 * Math.sin(simTime * 2);
+
+    ctx.beginPath();
+    ctx.moveTo(0, -drone.radius * breathe);
+    ctx.lineTo(drone.radius * breathe, 0);
+    ctx.lineTo(0, drone.radius * breathe);
+    ctx.lineTo(-drone.radius * breathe, 0);
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/* ============================================================
+   MAIN DRAW FUNCTION
+   ============================================================ */
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  /* Inner radius */
+  ctx.save();
+  ctx.strokeStyle = "#1f2937";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(CENTER.x, CENTER.y, INNER_RADIUS, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  /* Core */
+  ctx.save();
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.arc(CENTER.x, CENTER.y, 18, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#e5e7eb";
+  ctx.font = "10px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText("CORE", CENTER.x, CENTER.y + 3);
+  ctx.restore();
+
+  /* Cardinal Directions */
+  ctx.save();
+  ctx.fillStyle = "#9ca3af";
+  ctx.font = "11px system-ui";
+  ctx.textAlign = "center";
+
+  ctx.fillText("N", CENTER.x, CENTER.y - INNER_RADIUS - 20);
+  ctx.fillText("S", CENTER.x, CENTER.y + INNER_RADIUS + 30);
+
+  ctx.textAlign = "left";
+  ctx.fillText("E", CENTER.x + INNER_RADIUS + 25, CENTER.y + 4);
+
+  ctx.textAlign = "right";
+  ctx.fillText("W", CENTER.x - INNER_RADIUS - 25, CENTER.y + 4);
+
+  ctx.restore();
+
+  /* Drones */
+  for (const d of state.drones) {
+    if (!d.active) continue;
+    drawGlyph(d);
+  }
+
+  /* HUD: Wave + Score + Naval Sync Indicator */
+  const hudX = 10;
+  const hudY = 14;
+  ctx.save();
+  ctx.fillStyle = "#e5e7eb";
+  ctx.font = "11px system-ui";
+  ctx.textAlign = "left";
+
+  const scoreStr = state.score.toString().padStart(4, "0");
+  let hudText = `WAVE ${currentWave + 1}/${TOTAL_WAVES} — SCORE ${scoreStr}`;
+  if (navalWindowActive) {
+    hudText += " — NAVAL SYNC ACTIVE";
+  }
+  ctx.fillText(hudText, hudX, hudY);
+  ctx.restore();
+
+  /* STRESS BAR */
+  const barWidth = 160;
+  const barHeight = 10;
+  const barX = 10;
+  const barY = 22;
+
+  ctx.save();
+
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+
+  const stressRatio = Math.max(0, Math.min(1, state.stress / 100));
+
+  let stressColor;
+  if (stressRatio > 0.5) {
+    stressColor = "#22c55e";
+  } else if (stressRatio > 0.25) {
+    stressColor = "#facc15";
+  } else {
+    stressColor = "#f97373";
+  }
+
+  ctx.fillStyle = stressColor;
+  ctx.fillRect(barX, barY, barWidth * stressRatio, barHeight);
+
+  ctx.strokeStyle = "#374151";
+  ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+  ctx.fillStyle = "#9ca3af";
+  ctx.font = "10px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText(
+    `Stress Index: ${state.stress.toFixed(0)}`,
+    barX + barWidth / 2,
+    barY + barHeight + 10
+  );
+
+  ctx.restore();
+}
+
+/* ============================================================
+   TACTICAL SNAPSHOT SYSTEM
+   ============================================================ */
+
+function formatNavalStatus() {
+  return navalWindowActive ? "Active" : "Inactive";
+}
+
+function sideLabel(drone) {
+  if (drone.spawnSide === "north") return "North";
+  if (drone.spawnSide === "east") return "East";
+  if (drone.spawnSide === "west") return "West";
+  return "Unknown";
+}
+
+function distancePercentToCore(drone) {
+  const dx = CENTER.x - drone.x;
+  const dy = CENTER.y - drone.y;
+  const dist = Math.hypot(dx, dy);
+
+  /* Approximate: 0% at spawn, 100% at inner radius */
+  const maxDist = 260; // rough outer distance
+  const norm = Math.max(0, Math.min(1, 1 - dist / maxDist));
+  return Math.round(norm * 100);
+}
+
+function generateTacticalSnapshot() {
+  const waveNum = currentWave + 1;
+  const stressVal = Math.max(0, Math.round(state.stress));
+  const navalStatus = formatNavalStatus();
+
+  const activeVectors = [];
+  const decoys = [];
+
+  for (const d of state.drones) {
+    if (!d.active || d.neutralized) continue;
+    if (d.isDecoy) {
+      decoys.push(d);
+    } else {
+      activeVectors.push(d);
+    }
+  }
+
+  let lines = [];
+  lines.push("=== TACTICAL SNAPSHOT ===");
+  lines.push(`Wave ${waveNum} — Stress ${stressVal} — Naval Sync: ${navalStatus}`);
+  lines.push("");
+  lines.push("Active Vectors:");
+
+  if (activeVectors.length === 0 && decoys.length === 0) {
+    lines.push("• None currently threatening the core");
+  } else {
+    activeVectors.forEach(d => {
+      const pct = distancePercentToCore(d);
+      const side = sideLabel(d);
+      const tele = d.telegraphing ? ", telegraphing" : "";
+      lines.push(`• ${d.type} (${side}): ${pct}% to core${tele}`);
+    });
+
+    decoys.forEach(d => {
+      const pct = distancePercentToCore(d);
+      const clusterSide = sideLabel(d) || "Unknown";
+      lines.push(`• DECOY: ${clusterSide} cluster, ${pct}% to core`);
+    });
+  }
+
+ lines.push("");
+lines.push("Your options:");
+lines.push("[1] Fire Pulse (Offensive Burst)");
+lines.push("[2] Fire Overload (High-Risk Strike)");
+lines.push("[3] Fire Precision Shot (Single Target)");
+lines.push("[4] Fire EMP Counterpulse");
+lines.push("[5] Fire Signal Stabilizer");
+lines.push("[6] Fire Sensor Sweep");
+lines.push("[7] Identify Decoy");
+lines.push("[8] Hold Action");
+
+tacticalContent.textContent = lines.join("\n");
+
+tacticalActions.innerHTML = "";
+
+/* 1 — Fire Pulse */
+const b1 = document.createElement("button");
+b1.className = "tacticalBtn";
+b1.textContent = "[1] Fire Pulse (Offensive Burst)";
+b1.onclick = () => {
+  tacticalPopup.style.display = "none";
+  resumeGame();
+  firePulse();          // implement later
+  logEl.scrollTop = 0;  // ensure operator sees the log entry
+};
+
+/* 2 — Fire Overload */
+const b2 = document.createElement("button");
+b2.className = "tacticalBtn";
+b2.textContent = "[2] Fire Overload (High-Risk Strike)";
+b2.onclick = () => {
+  tacticalPopup.style.display = "none";
+  resumeGame();
+  fireOverload();       // implement later
+  logEl.scrollTop = 0;
+};
+
+/* 3 — Fire Precision Shot */
+const b3 = document.createElement("button");
+b3.className = "tacticalBtn";
+b3.textContent = "[3] Fire Precision Shot (Single Target)";
+b3.onclick = () => {
+  tacticalPopup.style.display = "none";
+  resumeGame();
+  firePrecisionShot();  // implement later
+  logEl.scrollTop = 0;
+};
+
+/* 4 — EMP Counterpulse */
+const b4 = document.createElement("button");
+b4.className = "tacticalBtn";
+b4.textContent = "[4] Fire EMP Counterpulse";
+b4.onclick = () => {
+  tacticalPopup.style.display = "none";
+  resumeGame();
+  handleEMP();
+  logEl.scrollTop = 0;
+};
+
+/* 5 — Signal Stabilizer */
+const b5 = document.createElement("button");
+b5.className = "tacticalBtn";
+b5.textContent = "[5] Fire Signal Stabilizer";
+b5.onclick = () => {
+  tacticalPopup.style.display = "none";
+  resumeGame();
+  handleSignal();
+  logEl.scrollTop = 0;
+};
+
+/* 6 — Sensor Sweep */
+const b6 = document.createElement("button");
+b6.className = "tacticalBtn";
+b6.textContent = "[6] Fire Sensor Sweep";
+b6.onclick = () => {
+  tacticalPopup.style.display = "none";
+  resumeGame();
+  handleSensor();
+  logEl.scrollTop = 0;
+};
+
+/* 7 — Identify Decoy */
+const b7 = document.createElement("button");
+b7.className = "tacticalBtn";
+b7.textContent = "[7] Identify Decoy";
+b7.onclick = () => {
+  tacticalPopup.style.display = "none";
+  resumeGame();
+
+  const activeDecoys = state.drones.filter(d => d.active && !d.neutralized && d.isDecoy);
+  if (activeDecoys.length === 1 && !state.decoyIdentified) {
+    state.decoyIdentified = true;
+    state.score += SCORE_DECOY_CORRECT;
+    log('You: "Contact flagged as decoy."');
+  } else {
+    log("Decoy identification deferred to radar click.");
+  }
+
+  logEl.scrollTop = 0;
+};
+
+/* 8 — Hold Action */
+const b8 = document.createElement("button");
+b8.className = "tacticalBtn";
+b8.textContent = "[8] Hold Action";
+b8.onclick = () => {
+  tacticalPopup.style.display = "none";
+  resumeGame();
+  log("[8] Hold Action, Pick One.");
+  logEl.scrollTop = 0;
+};
+
+/* Append all 8 buttons */
+tacticalActions.appendChild(b1);
+tacticalActions.appendChild(b2);
+tacticalActions.appendChild(b3);
+tacticalActions.appendChild(b4);
+tacticalActions.appendChild(b5);
+tacticalActions.appendChild(b6);
+tacticalActions.appendChild(b7);
+tacticalActions.appendChild(b8);
+
+
+}
+
+function openTacticalPopup() {
+  tacticalPopup.style.display = "block";
+  tacticalPopup.style.top = "50%";
+  tacticalPopup.style.left = "50%";
+  tacticalPopup.style.transform = "translate(-50%, -50%)";
+  generateTacticalSnapshot();
+}
+
+btnCloseTactical.addEventListener("click", () => {
+  tacticalPopup.style.display = "none";
+  resumeGame();
+});
+
+/* ============================================================
+   END OF SCRIPT
+   ============================================================ */
+</script>
+<script>
+function logActionMenu() {
+  log("Your options:");
+  log("[1] Fire Pulse (Offensive Burst)");
+  log("[2] Fire Overload (High-Risk Strike)");
+  log("[3] Fire Precision Shot (Single Target)");
+  log("[4] Fire EMP Counterpulse");
+  log("[5] Fire Signal Stabilizer");
+  log("[6] Fire Sensor Sweep");
+  log("[7] Identify Decoy");
+  log("[8] Hold Action. Pick One.");
+}
+</script>
+</html>
