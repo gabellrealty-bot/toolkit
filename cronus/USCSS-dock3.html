@@ -1,1 +1,399 @@
+<head>
+<meta charset="utf-8" />
+<title>Babylon Dock Viewer</title>
 
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-family: system-ui, sans-serif;
+    background: #05060a;
+    color: #eee;
+  }
+
+  /* Top menu bar */
+  #topBar {
+    height: 40px;
+    background: #11141b;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-bottom: 1px solid #222;
+  }
+
+  #topBar .menu-group {
+    margin-right: 20px;
+    position: relative;
+  }
+
+  #topBar button {
+    background: transparent;
+    border: none;
+    color: #ddd;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  #topBar button:hover {
+    background: #1c2230;
+  }
+
+  .dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #151822;
+    border: 1px solid #333;
+    min-width: 140px;
+    display: none;
+    z-index: 10;
+  }
+
+  .dropdown button {
+    width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+  }
+
+  .menu-group.open .dropdown {
+    display: block;
+  }
+
+  /* Main layout */
+  #main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  #leftPanel, #rightPanel {
+    width: 260px;
+    background: #10131c;
+    border-right: 1px solid #222;
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  #rightPanel {
+    border-right: none;
+    border-left: 1px solid #222;
+  }
+
+  #viewer {
+    flex: 1;
+    position: relative;
+    background: #05060a; /* default black */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  #renderCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Panel headers / tabs */
+  .panel-header {
+    display: flex;
+    border-bottom: 1px solid #222;
+    margin-bottom: 8px;
+  }
+
+  .panel-tab {
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: #aaa;
+  }
+
+  .panel-tab.active {
+    color: #fff;
+    border-bottom: 2px solid #4ea3ff;
+  }
+
+  .panel-section {
+    font-size: 12px;
+  }
+
+  /* Themes */
+  .theme-dark {
+    --accent: #4ea3ff;
+    --bg-panel: #10131c;
+  }
+
+  .theme-amber {
+    --accent: #ffb347;
+    --bg-panel: #1b130a;
+  }
+
+  body.theme-dark #leftPanel,
+  body.theme-dark #rightPanel {
+    background: var(--bg-panel);
+  }
+
+  body.theme-amber #leftPanel,
+  body.theme-amber #rightPanel {
+    background: var(--bg-panel);
+  }
+
+  body.theme-dark .panel-tab.active {
+    border-bottom-color: var(--accent);
+  }
+
+  body.theme-amber .panel-tab.active {
+    border-bottom-color: var(--accent);
+  }
+
+  /* Overlay */
+  #statusOverlay {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.6);
+    font-size: 11px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+
+<body class="theme-dark">
+
+<div id="topBar">
+  <div class="menu-group" data-menu="file">
+    <button>File ▾</button>
+    <div class="dropdown">
+      <button onclick="alert('New scene (stub)')">New Scene</button>
+      <button onclick="alert('Open (stub)')">Open…</button>
+      <button onclick="alert('Save (stub)')">Save</button>
+
+      <!-- STEP 1: Background Upload -->
+      <button onclick="document.getElementById('bgUpload').click()">Upload Background</button>
+      <input type="file" id="bgUpload" accept="image/*" style="display:none" onchange="setBackgroundImage(event)">
+    </div>
+  </div>
+
+  <div class="menu-group" data-menu="view">
+    <button>View ▾</button>
+    <div class="dropdown">
+      <button onclick="setCameraPreset('front')">Front View</button>
+      <button onclick="setCameraPreset('side')">Side View</button>
+      <button onclick="setCameraPreset('top')">Top View</button>
+    </div>
+  </div>
+
+  <div class="menu-group" data-menu="theme">
+    <button>Theme ▾</button>
+    <div class="dropdown">
+      <button onclick="setTheme('dark')">Dark Blue</button>
+      <button onclick="setTheme('amber')">Amber</button>
+    </div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="leftPanel">
+    <div class="panel-header">
+      <div class="panel-tab active">Scene</div>
+      <div class="panel-tab">Nodes</div>
+      <div class="panel-tab">Materials</div>
+    </div>
+    <div class="panel-section">
+      <p><strong>Scene Explorer</strong></p>
+      <ul>
+        <li>USCSS Root</li>
+        <li>Engines</li>
+        <li>Hull</li>
+        <li>Lights</li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="viewer">
+    <canvas id="renderCanvas"></canvas>
+    <div id="statusOverlay">FPS: <span id="fpsValue">0</span></div>
+  </div>
+
+  <div id="rightPanel">
+    <div class="panel-header">
+      <div class="panel-tab active">Properties</div>
+      <div class="panel-tab">Lighting</div>
+    </div>
+    <div class="panel-section">
+      <p><strong>No entity selected</strong></p>
+      <p>Flood light: <span id="floodStatus">On</span></p>
+      <button onclick="toggleFlood()">Toggle Flood Light</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+<script>
+/* ------------------------------
+   MENU LOGIC
+------------------------------ */
+document.querySelectorAll('#topBar .menu-group > button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const group = btn.parentElement;
+    const isOpen = group.classList.contains('open');
+    document.querySelectorAll('#topBar .menu-group').forEach(g => g.classList.remove('open'));
+    if (!isOpen) group.classList.add('open');
+  });
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#topBar')) {
+    document.querySelectorAll('#topBar .menu-group').forEach(g => g.classList.remove('open'));
+  }
+});
+
+/* ------------------------------
+   THEME SWITCH
+------------------------------ */
+function setTheme(name) {
+  document.body.classList.remove('theme-dark', 'theme-amber');
+  if (name === 'dark') document.body.classList.add('theme-dark');
+  if (name === 'amber') document.body.classList.add('theme-amber');
+}
+
+/* ------------------------------
+   STEP 1 — BACKGROUND UPLOAD
+------------------------------ */
+
+// Load saved background on startup
+window.addEventListener("load", () => {
+  const savedBG = localStorage.getItem("dockBackground");
+  if (savedBG) {
+    document.getElementById("viewer").style.backgroundImage = `url(${savedBG})`;
+  } else {
+    document.getElementById("viewer").style.backgroundImage = "none";
+  }
+});
+
+// Handle background upload
+function setBackgroundImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataURL = e.target.result;
+
+    // Save to browser storage
+    localStorage.setItem("dockBackground", dataURL);
+
+    // Apply immediately
+    document.getElementById("viewer").style.backgroundImage = `url(${dataURL})`;
+  };
+
+  reader.readAsDataURL(file);
+}
+
+/* ------------------------------
+   BABYLON SETUP
+------------------------------ */
+const canvas = document.getElementById("renderCanvas");
+const engine = new BABYLON.Engine(canvas, true);
+
+let scene, camera, floodLight, dirLight;
+
+const createScene = function () {
+  scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
+
+  camera = new BABYLON.ArcRotateCamera(
+    "camera",
+    -Math.PI / 2,
+    Math.PI / 3,
+    25,
+    new BABYLON.Vector3(0, 0, 0),
+    scene
+  );
+  camera.attachControl(canvas, true);
+
+  floodLight = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0, 1, 0), scene);
+  floodLight.intensity = 1.2;
+
+  dirLight = new BABYLON.DirectionalLight("dir", new BABYLON.Vector3(-1, -1, 1), scene);
+  dirLight.position = new BABYLON.Vector3(20, 20, -20);
+  dirLight.intensity = 2.0;
+
+  BABYLON.SceneLoader.Append("./", "USCSS-compressed2.glb", scene, function (scn) {
+    const imported = scn.meshes.filter(m => m.name !== "__root__");
+    if (imported.length === 0) return;
+
+    const root = BABYLON.Mesh.MergeMeshes(imported, true, true, undefined, false, true);
+    if (!root) return;
+
+    const bbox = root.getBoundingInfo().boundingBox;
+    const size = bbox.maximum.subtract(bbox.minimum);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const desiredSize = 10;
+    const scale = desiredSize / maxDim;
+
+    root.scaling = new BABYLON.Vector3(scale, scale, scale);
+
+    const newBBox = root.getBoundingInfo().boundingBox;
+    const center = newBBox.centerWorld;
+    root.position = root.position.subtract(center);
+
+    camera.radius = desiredSize * 2.2;
+  });
+
+  return scene;
+};
+
+scene = createScene();
+
+engine.runRenderLoop(function () {
+  if (scene) {
+    scene.render();
+    document.getElementById("fpsValue").textContent = engine.getFps().toFixed(0);
+  }
+});
+
+window.addEventListener("resize", function () {
+  engine.resize();
+});
+
+/* ------------------------------
+   FLOOD LIGHT TOGGLE
+------------------------------ */
+function toggleFlood() {
+  if (!floodLight || !dirLight) return;
+  const on = floodLight.intensity > 0.1 || dirLight.intensity > 0.1;
+  if (on) {
+    floodLight.intensity = 0.0;
+    dirLight.intensity = 0.0;
+    document.getElementById("floodStatus").textContent = "Off";
+  } else {
+    floodLight.intensity = 1.2;
+    dirLight.intensity = 2.0;
+    document.getElementById("floodStatus").textContent = "On";
+  }
+}
+
+/* ------------------------------
+   CAMERA PRESETS
+------------------------------ */
+function setCameraPreset(preset) {
+  if (!camera) return;
+  const radius = camera.radius;
+  if (preset === "front") {
+    camera.setPosition(new BABYLON.Vector3(0, 0, -radius));
+  } else if (preset === "side") {
+    camera.setPosition(new BABYLON.Vector3(radius, 0, 0));
+  } else if (preset === "top") {
+    camera.setPosition(new BABYLON.Vector3(0, radius, 0.001));
+  }
+  camera.setTarget(BABYLON.Vector3.Zero());
+}
+</script>
+</body>
+</html>
